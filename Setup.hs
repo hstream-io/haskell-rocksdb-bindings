@@ -1,0 +1,2 @@
+}istribution.Simple
+main = defaultMain
