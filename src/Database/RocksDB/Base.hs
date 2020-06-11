@@ -63,6 +63,39 @@ open path opts = ExceptT $ withDBOpts opts mkDB
 close :: DB -> IO ()
 close (DB dbPtr) = finalizeForeignPtr dbPtr
 
+put :: DB -> WriteOptions -> ByteString -> ByteString -> ExceptT DBException IO ()
+put (DB dbPtr) writeOpts  key value = ExceptT $ withWriteOpts writeOpts put'
+  where
+    put' opts = do
+      (cKey, cKeyLen) <- unsafeUseAsCStringLen key return
+      (cValue, cValueLen) <- unsafeUseAsCStringLen value return
+      errPtr <- C.put dbPtr opts cKey (intToCSize cKeyLen) cValue (intToCSize cValueLen)
+      if errPtr == nullPtr
+        then return $ Right ()
+        else do
+          errStr <- liftIO $ peekCString errPtr
+          return $ Left $ DBException $ "put error: " ++ errStr
+
+get :: DB -> ReadOptions -> ByteString -> ExceptT DBException IO (Maybe ByteString)
+get (DB dbPtr) readOpts key = ExceptT $ withReadOpts readOpts get'
+  where
+    get' readOptsPtr = do
+      (cKey, cKeyLen) <- unsafeUseAsCStringLen key return
+      (valuePtr, valueLen, errPtr) <- C.get dbPtr readOptsPtr cKey (intToCSize cKeyLen)
+      if errPtr == nullPtr
+        then
+          if valuePtr == nullPtr
+            then return $ Right Nothing
+            else do
+              value <- unsafePackCStringLen (valuePtr, cSizeToInt valueLen)
+              return $ Right $ Just value
+        else do
+          errStr <- liftIO $ peekCString errPtr
+          return $ Left $ DBException $ "get error: " ++ errStr
+          
+createIterator :: DB -> ReadOptions -> IO Iterator
+createIterator (DB dbPtr) readOpts  = withReadOpts readOpts (fmap Iterator . C.createIterator dbPtr)
+
 createColumnFamily :: DB -> DBOptions -> String -> ExceptT DBException IO ColumnFamily
 createColumnFamily (DB dbPtr) opts name = ExceptT $ withDBOpts opts mkCF
   where

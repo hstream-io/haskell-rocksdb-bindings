@@ -31,7 +31,10 @@ module Database.RocksDB.C (
     iterNext,
     iterKey,
     iterValue,
-    iterGetError
+    iterGetError,
+    put,
+    get,
+    createIterator
 ) where
 
 import Foreign.C.String
@@ -95,6 +98,11 @@ import Foreign.Storable
 
 {#fun open as ^ { `DBOptionsPtr', `CString', alloca- `CString' peek*} -> `DBFPtr' #}
 
+{#fun put as ^ { `DBFPtr', `WriteOptionsPtr', `CString', `CSize', `CString', `CSize', alloca- `CString' peek*} -> `()' #}
+
+{#fun get as ^ { `DBFPtr', `ReadOptionsPtr', `CString', `CSize', alloca- `CSize' peek*, alloca- `CString' peek*} -> `CString' #}
+
+{#fun create_iterator as ^ {`DBFPtr', `ReadOptionsPtr'} -> `IteratorFPtr' #}
 
 -- column family
 

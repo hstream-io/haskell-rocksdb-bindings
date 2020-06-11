@@ -35,6 +35,52 @@ main = hspec $ describe "Basic DB Functionality" $
               return $ either show (const "success") e
         )
         `shouldReturn` "success"
+    it "put kv to db" $
+      withSystemTempDirectory
+        "rocksdb"
+        ( \path ->
+            do
+              e <-
+                runExceptT $ do
+                  let opts = DBOptions {createIfMissing = True}
+                  db <- open path opts
+                  put db WriteOptions {setSync = False} "key" "value"
+              return $ either show (const "success") e
+        )
+        `shouldReturn` "success"
+    it "get value from db" $
+      withSystemTempDirectory
+        "rocksdb"
+        ( \path ->
+            do
+              e <-
+                runExceptT $ do
+                  let opts = DBOptions {createIfMissing = True}
+                  db <- open path opts
+                  put db WriteOptions {setSync = False} "key" "value"
+                  value <- get db ReadOptions {setVerifyChecksums = False} "key"
+                  case value of
+                    Nothing -> return ""
+                    Just v -> return v
+              return $ either (const "error") id e
+        )
+        `shouldReturn` "value"
+    it "get nonexistent value from db" $
+      withSystemTempDirectory
+        "rocksdb"
+        ( \path ->
+            do
+              e <-
+                runExceptT $ do
+                  let opts = DBOptions {createIfMissing = True}
+                  db <- open path opts
+                  value <- get db ReadOptions {setVerifyChecksums = False} "key"
+                  case value of
+                    Nothing -> return ""
+                    Just v -> return v
+              return $ either (const "error") id e
+        )
+        `shouldReturn` ""
     it "create column family" $
       withSystemTempDirectory
         "rocksdb"
