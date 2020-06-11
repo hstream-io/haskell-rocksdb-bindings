@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: fd1d0064605089b8f016d2bc9a6a26471a2d01e142655168f6a77660849d8b21
+-- hash: c2974b5682140a8919b9630e4b9beb5c5ce0f1bca9100b1056648d8499220249
 
 name:           rocksdb-haskell-bindings
 version:        0.1.0.0
@@ -40,8 +40,10 @@ library
   build-depends:
       base >=4.7 && <5
     , bytestring
+    , conduit
     , either
     , resourcet
+    , streamly
     , transformers
   default-language: Haskell2010
 
@@ -56,10 +58,12 @@ test-suite rocksdb-haskell-bindings-test
   build-depends:
       base >=4.7 && <5
     , bytestring
+    , conduit
     , either
     , hspec
     , resourcet
     , rocksdb-haskell-bindings
+    , streamly
     , temporary
     , transformers
   default-language: Haskell2010

@@ -18,6 +18,8 @@ dependencies:
 - transformers
 - either
 - bytestring
+- conduit
+- streamly
 
 library:
   source-dirs: src

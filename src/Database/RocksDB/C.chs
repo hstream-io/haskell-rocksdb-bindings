@@ -23,7 +23,15 @@ module Database.RocksDB.C (
     readoptionsDestroy,
     putCf,
     getCf,
-    createIteratorCf
+    createIteratorCf,
+    iterValid,
+    iterSeekToFirst,
+    iterSeekToLast,
+    iterSeek,
+    iterNext,
+    iterKey,
+    iterValue,
+    iterGetError
 ) where
 
 import Foreign.C.String
@@ -107,4 +115,23 @@ alloca- `CString' peek*} -> `DBFPtr' #}
 {#fun get_cf as ^ { `DBFPtr', `ReadOptionsPtr', `CFFPtr', `CString', `CSize', alloca- `CSize' peek*, alloca- `CString' peek*} -> `CString' #}
 
 {#fun create_iterator_cf as ^ {`DBFPtr', `ReadOptionsPtr', `CFFPtr'} -> `IteratorFPtr' #}
+
+-- Iterator
+
+{#fun iter_valid as ^ {`IteratorFPtr'} -> `Bool' #}
+
+{#fun iter_seek_to_first as ^ {`IteratorFPtr'} -> `()' #}
+
+{#fun iter_seek_to_last as ^ {`IteratorFPtr'} -> `()' #}
+
+{#fun iter_seek as ^ {`IteratorFPtr', `CString', `CSize'} -> `()' #}
+
+{#fun iter_next as ^ {`IteratorFPtr'} -> `()' #}
+
+{#fun iter_key as ^ {`IteratorFPtr', alloca- `CSize' peek*} -> `CString' #}
+
+{#fun iter_value as ^ {`IteratorFPtr', alloca- `CSize' peek*} -> `CString' #}
+
+{#fun iter_get_error as ^ {`IteratorFPtr', alloca- `CString' peek*} -> `()' #}
+
 
