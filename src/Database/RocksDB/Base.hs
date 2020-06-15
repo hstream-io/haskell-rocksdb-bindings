@@ -13,6 +13,7 @@ import Control.Monad.Trans.Maybe (MaybeT)
 import Control.Monad.Trans.Resource (allocate, runResourceT)
 import Data.ByteString (ByteString, packCStringLen, useAsCStringLen)
 import Data.ByteString.Unsafe (unsafePackCStringLen, unsafeUseAsCStringLen)
+import Data.Default
 import Data.Function ((&))
 import Data.Maybe (isJust)
 import qualified Database.RocksDB.C as C
@@ -64,7 +65,7 @@ close :: DB -> IO ()
 close (DB dbPtr) = finalizeForeignPtr dbPtr
 
 put :: DB -> WriteOptions -> ByteString -> ByteString -> ExceptT DBException IO ()
-put (DB dbPtr) writeOpts  key value = ExceptT $ withWriteOpts writeOpts put'
+put (DB dbPtr) writeOpts key value = ExceptT $ withWriteOpts writeOpts put'
   where
     put' opts = do
       (cKey, cKeyLen) <- unsafeUseAsCStringLen key return
@@ -92,9 +93,9 @@ get (DB dbPtr) readOpts key = ExceptT $ withReadOpts readOpts get'
         else do
           errStr <- liftIO $ peekCString errPtr
           return $ Left $ DBException $ "get error: " ++ errStr
-          
+
 createIterator :: DB -> ReadOptions -> IO Iterator
-createIterator (DB dbPtr) readOpts  = withReadOpts readOpts (fmap Iterator . C.createIterator dbPtr)
+createIterator (DB dbPtr) readOpts = withReadOpts readOpts (fmap Iterator . C.createIterator dbPtr)
 
 createColumnFamily :: DB -> DBOptions -> String -> ExceptT DBException IO ColumnFamily
 createColumnFamily (DB dbPtr) opts name = ExceptT $ withDBOpts opts mkCF
@@ -547,6 +548,30 @@ mkReadOpts ReadOptions {..} = C.readoptionsCreate
 
 withReadOpts :: ReadOptions -> (C.ReadOptionsPtr -> IO a) -> IO a
 withReadOpts opts = bracket (mkReadOpts opts) C.readoptionsDestroy
+
+defaultDBOptions :: DBOptions
+defaultDBOptions =
+  DBOptions
+    { createIfMissing = False
+    }
+
+instance Default DBOptions where
+  def = defaultDBOptions
+
+defaultWriteOptions :: WriteOptions
+defaultWriteOptions = WriteOptions {setSync = False}
+
+instance Default WriteOptions where
+  def = defaultWriteOptions
+
+defaultReadOptions :: ReadOptions
+defaultReadOptions =
+  ReadOptions
+    { setVerifyChecksums = False
+    }
+
+instance Default ReadOptions where
+  def = defaultReadOptions
 
 intToCInt :: Int -> CInt
 intToCInt = fromIntegral

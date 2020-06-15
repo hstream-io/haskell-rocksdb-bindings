@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: c2974b5682140a8919b9630e4b9beb5c5ce0f1bca9100b1056648d8499220249
+-- hash: 6d9c4dbf73ce4832a028eec6e84c733e91c0a6cd9071122fcd49fe8d50b0da26
 
 name:           rocksdb-haskell-bindings
 version:        0.1.0.0
@@ -41,6 +41,7 @@ library
       base >=4.7 && <5
     , bytestring
     , conduit
+    , data-default
     , either
     , resourcet
     , streamly
@@ -59,6 +60,7 @@ test-suite rocksdb-haskell-bindings-test
       base >=4.7 && <5
     , bytestring
     , conduit
+    , data-default
     , either
     , hspec
     , resourcet

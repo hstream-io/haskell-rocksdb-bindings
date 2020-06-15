@@ -10,6 +10,7 @@ import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except (mapExceptT, runExceptT)
 import Control.Monad.Trans.Resource (MonadUnliftIO, ResourceT, allocate, release, runResourceT)
 import Data.ByteString (ByteString)
+import Data.Default (def)
 import Data.Either.Combinators (isRight)
 import Database.RocksDB.Base
 import qualified Streamly.Prelude as S
@@ -44,7 +45,7 @@ main = hspec $ describe "Basic DB Functionality" $
                 runExceptT $ do
                   let opts = DBOptions {createIfMissing = True}
                   db <- open path opts
-                  put db WriteOptions {setSync = False} "key" "value"
+                  put db def "key" "value"
               return $ either show (const "success") e
         )
         `shouldReturn` "success"
@@ -57,8 +58,8 @@ main = hspec $ describe "Basic DB Functionality" $
                 runExceptT $ do
                   let opts = DBOptions {createIfMissing = True}
                   db <- open path opts
-                  put db WriteOptions {setSync = False} "key" "value"
-                  value <- get db ReadOptions {setVerifyChecksums = False} "key"
+                  put db def "key" "value"
+                  value <- get db def "key"
                   case value of
                     Nothing -> return ""
                     Just v -> return v
@@ -74,7 +75,7 @@ main = hspec $ describe "Basic DB Functionality" $
                 runExceptT $ do
                   let opts = DBOptions {createIfMissing = True}
                   db <- open path opts
-                  value <- get db ReadOptions {setVerifyChecksums = False} "key"
+                  value <- get db def "key"
                   case value of
                     Nothing -> return ""
                     Just v -> return v
@@ -158,7 +159,7 @@ main = hspec $ describe "Basic DB Functionality" $
                   let opts = DBOptions {createIfMissing = True}
                   db <- open path opts
                   cf <- createColumnFamily db opts "cf"
-                  putCF db WriteOptions {setSync = False} cf "key" "value"
+                  putCF db def cf "key" "value"
                   lift $ destroyColumnFamily cf
                   lift $ close db
               return $ either show (const "success") e
@@ -174,8 +175,8 @@ main = hspec $ describe "Basic DB Functionality" $
                   let opts = DBOptions {createIfMissing = True}
                   db <- open path opts
                   cf <- createColumnFamily db opts "cf"
-                  putCF db WriteOptions {setSync = False} cf "key" "value"
-                  value <- getCF db ReadOptions {setVerifyChecksums = False} cf "key"
+                  putCF db def cf "key" "value"
+                  value <- getCF db def cf "key"
                   lift $ destroyColumnFamily cf
                   lift $ close db
                   case value of
@@ -194,7 +195,7 @@ main = hspec $ describe "Basic DB Functionality" $
                   let opts = DBOptions {createIfMissing = True}
                   db <- open path opts
                   cf <- createColumnFamily db opts "cf"
-                  value <- getCF db ReadOptions {setVerifyChecksums = False} cf "key"
+                  value <- getCF db def cf "key"
                   lift $ destroyColumnFamily cf
                   lift $ close db
                   case value of
@@ -213,7 +214,7 @@ main = hspec $ describe "Basic DB Functionality" $
                   let opts = DBOptions {createIfMissing = True}
                   db <- open path opts
                   cf <- createColumnFamily db opts "cf"
-                  iter <- liftIO $ createIteratorCF db ReadOptions {setVerifyChecksums = False} cf
+                  iter <- liftIO $ createIteratorCF db def cf
                   lift $ destroyIterator iter
                   lift $ destroyColumnFamily cf
                   lift $ close db
@@ -254,9 +255,9 @@ main = hspec $ describe "Basic DB Functionality" $
                       let opts = DBOptions {createIfMissing = True}
                       db <- open path opts
                       cf <- createColumnFamily db opts "cf"
-                      putCF db WriteOptions {setSync = False} cf "key1" "value1"
-                      putCF db WriteOptions {setSync = False} cf "key2" "value2"
-                      putCF db WriteOptions {setSync = False} cf "key3" "value3"
+                      putCF db def cf "key1" "value1"
+                      putCF db def cf "key2" "value2"
+                      putCF db def cf "key3" "value3"
                       return (db, cf)
                   )
               either
@@ -282,9 +283,9 @@ main = hspec $ describe "Basic DB Functionality" $
                       let opts = DBOptions {createIfMissing = True}
                       db <- open path opts
                       cf <- createColumnFamily db opts "cf"
-                      putCF db WriteOptions {setSync = False} cf "key1" "value1"
-                      putCF db WriteOptions {setSync = False} cf "key2" "value2"
-                      putCF db WriteOptions {setSync = False} cf "key3" "value3"
+                      putCF db def cf "key1" "value1"
+                      putCF db def cf "key2" "value2"
+                      putCF db def cf "key3" "value3"
                       return (db, cf)
                   )
               either
@@ -310,16 +311,16 @@ main = hspec $ describe "Basic DB Functionality" $
                       let opts = DBOptions {createIfMissing = True}
                       db <- open path opts
                       cf <- createColumnFamily db opts "cf"
-                      putCF db WriteOptions {setSync = False} cf "key1" "value1"
-                      putCF db WriteOptions {setSync = False} cf "key2" "value2"
-                      putCF db WriteOptions {setSync = False} cf "key3" "value3"
+                      putCF db def cf "key1" "value1"
+                      putCF db def cf "key2" "value2"
+                      putCF db def cf "key3" "value3"
                       return (db, cf)
                   )
               either
                 throwIO
                 ( \(db, cf) ->
                     do
-                      r <- S.toList $ rangeCF db ReadOptions {setVerifyChecksums = True} cf (Just "key2") Nothing
+                      r <- S.toList $ rangeCF db def cf (Just "key2") Nothing
                       destroyColumnFamily cf
                       close db
                       return r
@@ -338,16 +339,16 @@ main = hspec $ describe "Basic DB Functionality" $
                       let opts = DBOptions {createIfMissing = True}
                       db <- open path opts
                       cf <- createColumnFamily db opts "cf"
-                      putCF db WriteOptions {setSync = False} cf "key1" "value1"
-                      putCF db WriteOptions {setSync = False} cf "key2" "value2"
-                      putCF db WriteOptions {setSync = False} cf "key3" "value3"
+                      putCF db def cf "key1" "value1"
+                      putCF db def cf "key2" "value2"
+                      putCF db def cf "key3" "value3"
                       return (db, cf)
                   )
               either
                 throwIO
                 ( \(db, cf) ->
                     do
-                      r <- S.toList $ rangeCF db ReadOptions {setVerifyChecksums = True} cf (Just "key2") (Just "key2")
+                      r <- S.toList $ rangeCF db def cf (Just "key2") (Just "key2")
                       destroyColumnFamily cf
                       close db
                       return r

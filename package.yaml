@@ -20,6 +20,7 @@ dependencies:
 - bytestring
 - conduit
 - streamly
+- data-default
 
 library:
   source-dirs: src
