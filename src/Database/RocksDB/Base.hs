@@ -17,6 +17,9 @@ import Data.Default
 import Data.Function ((&))
 import Data.Maybe (isJust)
 import qualified Database.RocksDB.C as C
+import Database.RocksDB.Iterator
+import Database.RocksDB.Options
+import Database.RocksDB.Types
 import Foreign.C.String (newCString, peekCString, peekCStringLen, withCString)
 import Foreign.C.Types (CInt, CSize)
 import Foreign.ForeignPtr (finalizeForeignPtr, newForeignPtr)
@@ -26,24 +29,6 @@ import Foreign.Ptr (nullPtr)
 import Streamly (Serial)
 import qualified Streamly.Prelude as S
 import System.Posix.Internals (newFilePath, withFilePath)
-
-newtype DBException
-  = DBException String
-  deriving (Show, Eq)
-
-instance Exception DBException
-
-newtype DBOptions = DBOptions {createIfMissing :: Bool}
-
-newtype WriteOptions = WriteOptions {setSync :: Bool}
-
-newtype ReadOptions = ReadOptions {setVerifyChecksums :: Bool}
-
-newtype DB = DB C.DBFPtr
-
-newtype Iterator = Iterator C.IteratorFPtr
-
-newtype ColumnFamily = ColumnFamily C.CFFPtr
 
 open :: FilePath -> DBOptions -> ExceptT DBException IO DB
 open path opts = ExceptT $ withDBOpts opts mkDB
@@ -93,9 +78,6 @@ get (DB dbPtr) readOpts key = ExceptT $ withReadOpts readOpts get'
         else do
           errStr <- liftIO $ peekCString errPtr
           return $ Left $ DBException $ "get error: " ++ errStr
-
-createIterator :: DB -> ReadOptions -> IO Iterator
-createIterator (DB dbPtr) readOpts = withReadOpts readOpts (fmap Iterator . C.createIterator dbPtr)
 
 createColumnFamily :: DB -> DBOptions -> String -> ExceptT DBException IO ColumnFamily
 createColumnFamily (DB dbPtr) opts name = ExceptT $ withDBOpts opts mkCF
@@ -210,15 +192,6 @@ getCF (DB dbPtr) readOpts (ColumnFamily cfPtr) key = ExceptT $ withReadOpts read
         else do
           errStr <- liftIO $ peekCString errPtr
           return $ Left $ DBException $ "putCF error: " ++ errStr
-
-createIteratorCF :: DB -> ReadOptions -> ColumnFamily -> IO Iterator
-createIteratorCF (DB dbPtr) readOpts (ColumnFamily cfPtr) = withReadOpts readOpts (\optsPtr -> fmap Iterator (C.createIteratorCf dbPtr optsPtr cfPtr))
-
-destroyIterator :: Iterator -> IO ()
-destroyIterator (Iterator iter) = finalizeForeignPtr iter
-
-withIteratorCF :: DB -> ReadOptions -> ColumnFamily -> (Iterator -> IO a) -> IO a
-withIteratorCF db readOpts cf = bracket (createIteratorCF db readOpts cf) destroyIterator
 
 rangeCF :: DB -> ReadOptions -> ColumnFamily -> Maybe ByteString -> Maybe ByteString -> Serial (ByteString, ByteString)
 rangeCF db readOpts cf firstKey lastKey =
@@ -524,54 +497,6 @@ rangeCF db readOpts cf firstKey lastKey =
 --                  Just kv -> kv
 --              )
 --            & S.takeWhile (\(key, _) -> key <= k)
-
-mkDBOpts :: DBOptions -> IO C.DBOptionsPtr
-mkDBOpts DBOptions {..} = do
-  opts <- C.optionsCreate
-  C.optionsSetCreateIfMissing opts createIfMissing
-  return opts
-
-withDBOpts :: DBOptions -> (C.DBOptionsPtr -> IO a) -> IO a
-withDBOpts opts = bracket (mkDBOpts opts) C.optionsDestroy
-
-mkWriteOpts :: WriteOptions -> IO C.WriteOptionsPtr
-mkWriteOpts WriteOptions {..} = do
-  optsPtr <- C.writeoptionsCreate
-  C.writeoptionsSetSync optsPtr setSync
-  return optsPtr
-
-withWriteOpts :: WriteOptions -> (C.WriteOptionsPtr -> IO a) -> IO a
-withWriteOpts opts = bracket (mkWriteOpts opts) C.writeoptionsDestroy
-
-mkReadOpts :: ReadOptions -> IO C.ReadOptionsPtr
-mkReadOpts ReadOptions {..} = C.readoptionsCreate
-
-withReadOpts :: ReadOptions -> (C.ReadOptionsPtr -> IO a) -> IO a
-withReadOpts opts = bracket (mkReadOpts opts) C.readoptionsDestroy
-
-defaultDBOptions :: DBOptions
-defaultDBOptions =
-  DBOptions
-    { createIfMissing = False
-    }
-
-instance Default DBOptions where
-  def = defaultDBOptions
-
-defaultWriteOptions :: WriteOptions
-defaultWriteOptions = WriteOptions {setSync = False}
-
-instance Default WriteOptions where
-  def = defaultWriteOptions
-
-defaultReadOptions :: ReadOptions
-defaultReadOptions =
-  ReadOptions
-    { setVerifyChecksums = False
-    }
-
-instance Default ReadOptions where
-  def = defaultReadOptions
 
 intToCInt :: Int -> CInt
 intToCInt = fromIntegral
