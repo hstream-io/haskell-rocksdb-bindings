@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: c1c7a27e054fdfd6004e47a9c4f9de710a7975da06cd96f932ae5b608199a0d2
+-- hash: 18696ed6c8267eb766818f01ca9d2b4d0ec29445d123943e1778ae9ed983d89f
 
 name:           rocksdb-haskell-bindings
 version:        0.1.0.0
@@ -27,6 +27,7 @@ source-repository head
 
 library
   exposed-modules:
+      Database.RocksDB
       Database.RocksDB.Base
       Database.RocksDB.C
       Database.RocksDB.Iterator

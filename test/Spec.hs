@@ -12,9 +12,7 @@ import Control.Monad.Trans.Resource (MonadUnliftIO, ResourceT, allocate, release
 import Data.ByteString (ByteString)
 import Data.Default (def)
 import Data.Either.Combinators (isRight)
-import Database.RocksDB.Base
-import Database.RocksDB.Iterator
-import Database.RocksDB.Options
+import Database.RocksDB
 import qualified Streamly.Prelude as S
 import System.IO.Temp (withSystemTempDirectory)
 import Test.Hspec
