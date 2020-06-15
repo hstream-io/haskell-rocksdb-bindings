@@ -206,6 +206,32 @@ main = hspec $ describe "Basic DB Functionality" $
               return $ either (const "error") id e
         )
         `shouldReturn` ""
+    it "range [firstKey, lastKey]" $
+      withSystemTempDirectory
+        "rocksdb"
+        ( \path ->
+            do
+              er <-
+                runExceptT
+                  ( do
+                      let opts = DBOptions {createIfMissing = True}
+                      db <- open path opts
+                      put db def "key1" "value1"
+                      put db def "key2" "value2"
+                      put db def "key3" "value3"
+                      return db
+                  )
+              either
+                throwIO
+                ( \db ->
+                    do
+                      r <- S.toList $ range db def (Just "key1") (Just "key3")
+                      close db
+                      return r
+                )
+                er
+        )
+        `shouldReturn` [("key1", "value1"), ("key2", "value2"), ("key3", "value3")]
     it "create iterator on column family" $
       withSystemTempDirectory
         "rocksdb"

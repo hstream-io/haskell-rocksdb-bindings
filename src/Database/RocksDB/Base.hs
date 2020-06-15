@@ -79,6 +79,53 @@ get (DB dbPtr) readOpts key = ExceptT $ withReadOpts readOpts get'
           errStr <- liftIO $ peekCString errPtr
           return $ Left $ DBException $ "get error: " ++ errStr
 
+range :: DB -> ReadOptions -> Maybe ByteString -> Maybe ByteString -> Serial (ByteString, ByteString)
+range db readOpts firstKey lastKey =
+  S.bracket
+    (createIterator db readOpts)
+    destroyIterator
+    generateStream
+  where
+    generateStream :: Iterator -> Serial (ByteString, ByteString)
+    generateStream (Iterator iter) = do
+      case firstKey of
+        Nothing -> liftIO $ C.iterSeekToFirst iter
+        Just k -> liftIO $ useAsCStringLen k (\(cStr, len) -> C.iterSeek iter cStr (intToCSize len))
+      case lastKey of
+        Nothing ->
+          S.repeatM (getKV iter)
+            & S.takeWhile isJust
+            & S.map
+              ( \case
+                  Just kv -> kv
+              )
+        Just k ->
+          S.repeatM (getKV iter)
+            & S.takeWhile isJust
+            & S.map
+              ( \case
+                  Just kv -> kv
+              )
+            & S.takeWhile (\(key, _) -> key <= k)
+    getKV :: C.IteratorFPtr -> IO (Maybe (ByteString, ByteString))
+    getKV iter = do
+      valid <- C.iterValid iter
+      if valid
+        then do
+          (kPtr, kLen) <- C.iterKey iter
+          (vPtr, vLen) <- C.iterValue iter
+          key <- packCStringLen (kPtr, cSizeToInt kLen)
+          value <- packCStringLen (vPtr, cSizeToInt vLen)
+          C.iterNext iter
+          return $ Just (key, value)
+        else do
+          errPtr <- C.iterGetError iter
+          if errPtr == nullPtr
+            then return Nothing
+            else do
+              errStr <- peekCString errPtr
+              throwIO $ DBException $ "iterator error: " ++ errStr
+
 createColumnFamily :: DB -> DBOptions -> String -> ExceptT DBException IO ColumnFamily
 createColumnFamily (DB dbPtr) opts name = ExceptT $ withDBOpts opts mkCF
   where
