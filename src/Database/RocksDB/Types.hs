@@ -6,9 +6,3 @@ import qualified Database.RocksDB.C as C
 newtype DB = DB C.DBFPtr
 
 newtype ColumnFamily = ColumnFamily C.CFFPtr
-
-newtype DBException
-  = DBException String
-  deriving (Show, Eq)
-
-instance Exception DBException

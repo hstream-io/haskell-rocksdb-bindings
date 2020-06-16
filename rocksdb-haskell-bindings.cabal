@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 18696ed6c8267eb766818f01ca9d2b4d0ec29445d123943e1778ae9ed983d89f
+-- hash: 123b11fead9b63f2afbe0d11c8fc946fb48e188c42819160d38e57129bb945d1
 
 name:           rocksdb-haskell-bindings
 version:        0.1.0.0
@@ -70,6 +70,6 @@ test-suite rocksdb-haskell-bindings-test
     , resourcet
     , rocksdb-haskell-bindings
     , streamly
-    , temporary
+    , temporary-resourcet
     , transformers
   default-language: Haskell2010

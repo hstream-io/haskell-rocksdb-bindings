@@ -38,4 +38,4 @@ tests:
     dependencies:
     - rocksdb-haskell-bindings
     - hspec
-    - temporary
+    - temporary-resourcet

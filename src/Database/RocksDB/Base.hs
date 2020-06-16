@@ -1,5 +1,4 @@
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE RecordWildCards #-}
 
 module Database.RocksDB.Base where
 
@@ -10,7 +9,7 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except (ExceptT (..))
 import Control.Monad.Trans.Maybe (MaybeT)
-import Control.Monad.Trans.Resource (allocate, runResourceT)
+import Control.Monad.Trans.Resource (MonadUnliftIO, allocate, runResourceT)
 import Data.ByteString (ByteString, packCStringLen, useAsCStringLen)
 import Data.ByteString.Unsafe (unsafePackCStringLen, unsafeUseAsCStringLen)
 import Data.Default
@@ -30,8 +29,8 @@ import Streamly (Serial)
 import qualified Streamly.Prelude as S
 import System.Posix.Internals (newFilePath, withFilePath)
 
-open :: FilePath -> DBOptions -> ExceptT DBException IO DB
-open path opts = ExceptT $ withDBOpts opts mkDB
+open :: MonadIO m => DBOptions -> FilePath -> m DB
+open opts path = liftIO $ withDBOpts opts mkDB
   where
     mkDB optsPtr =
       withFilePath
@@ -40,30 +39,30 @@ open path opts = ExceptT $ withDBOpts opts mkDB
             do
               (dbPtr, errPtr) <- C.open optsPtr pathPtr
               if errPtr == nullPtr
-                then return $ Right $ DB dbPtr
+                then return $ DB dbPtr
                 else do
                   errStr <- peekCString errPtr
-                  return $ Left $ DBException $ "open error: " ++ errStr
+                  ioError $ userError $ "open error: " ++ errStr
         )
 
-close :: DB -> IO ()
-close (DB dbPtr) = finalizeForeignPtr dbPtr
+close :: MonadIO m => DB -> m ()
+close (DB dbPtr) = liftIO $ finalizeForeignPtr dbPtr
 
-put :: DB -> WriteOptions -> ByteString -> ByteString -> ExceptT DBException IO ()
-put (DB dbPtr) writeOpts key value = ExceptT $ withWriteOpts writeOpts put'
+put :: MonadIO m => DB -> WriteOptions -> ByteString -> ByteString -> m ()
+put (DB dbPtr) writeOpts key value = liftIO $ withWriteOpts writeOpts put'
   where
     put' opts = do
       (cKey, cKeyLen) <- unsafeUseAsCStringLen key return
       (cValue, cValueLen) <- unsafeUseAsCStringLen value return
       errPtr <- C.put dbPtr opts cKey (intToCSize cKeyLen) cValue (intToCSize cValueLen)
       if errPtr == nullPtr
-        then return $ Right ()
+        then return ()
         else do
           errStr <- liftIO $ peekCString errPtr
-          return $ Left $ DBException $ "put error: " ++ errStr
+          ioError $ userError $ "put error: " ++ errStr
 
-get :: DB -> ReadOptions -> ByteString -> ExceptT DBException IO (Maybe ByteString)
-get (DB dbPtr) readOpts key = ExceptT $ withReadOpts readOpts get'
+get :: MonadIO m => DB -> ReadOptions -> ByteString -> m (Maybe ByteString)
+get (DB dbPtr) readOpts key = liftIO $ withReadOpts readOpts get'
   where
     get' readOptsPtr = do
       (cKey, cKeyLen) <- unsafeUseAsCStringLen key return
@@ -71,13 +70,13 @@ get (DB dbPtr) readOpts key = ExceptT $ withReadOpts readOpts get'
       if errPtr == nullPtr
         then
           if valuePtr == nullPtr
-            then return $ Right Nothing
+            then return Nothing
             else do
               value <- unsafePackCStringLen (valuePtr, cSizeToInt valueLen)
-              return $ Right $ Just value
+              return $ Just value
         else do
           errStr <- liftIO $ peekCString errPtr
-          return $ Left $ DBException $ "get error: " ++ errStr
+          ioError $ userError $ "get error: " ++ errStr
 
 range :: DB -> ReadOptions -> Maybe ByteString -> Maybe ByteString -> Serial (ByteString, ByteString)
 range db readOpts firstKey lastKey =
@@ -124,10 +123,10 @@ range db readOpts firstKey lastKey =
             then return Nothing
             else do
               errStr <- peekCString errPtr
-              throwIO $ DBException $ "iterator error: " ++ errStr
+              ioError $ userError $ "iterator error: " ++ errStr
 
-createColumnFamily :: DB -> DBOptions -> String -> ExceptT DBException IO ColumnFamily
-createColumnFamily (DB dbPtr) opts name = ExceptT $ withDBOpts opts mkCF
+createColumnFamily :: MonadIO m => DB -> DBOptions -> String -> m ColumnFamily
+createColumnFamily (DB dbPtr) opts name = liftIO $ withDBOpts opts mkCF
   where
     mkCF optsPtr =
       withCString
@@ -139,23 +138,23 @@ createColumnFamily (DB dbPtr) opts name = ExceptT $ withDBOpts opts mkCF
                 optsPtr
                 cname
             if errPtr == nullPtr
-              then return $ Right $ ColumnFamily cfPtr
+              then return $ ColumnFamily cfPtr
               else do
                 errStr <- peekCString errPtr
-                return $ Left $ DBException $ "createColumnFamily error: " ++ errStr
+                ioError $ userError $ "createColumnFamily error: " ++ errStr
         )
 
-dropColumnFamily :: DB -> ColumnFamily -> ExceptT DBException IO ()
-dropColumnFamily (DB dbPtr) (ColumnFamily cfPtr) = ExceptT $ do
+dropColumnFamily :: MonadIO m => DB -> ColumnFamily -> m ()
+dropColumnFamily (DB dbPtr) (ColumnFamily cfPtr) = liftIO $ do
   errPtr <- C.dropColumnFamily dbPtr cfPtr
   if errPtr == nullPtr
-    then return $ Right ()
+    then return ()
     else do
       errStr <- peekCString errPtr
-      return $ Left $ DBException $ "dropColumnFamily error: " ++ errStr
+      ioError $ userError $ "dropColumnFamily error: " ++ errStr
 
-listColumnFamilies :: DBOptions -> FilePath -> ExceptT DBException IO [String]
-listColumnFamilies dbOpts dbPath = ExceptT $ runResourceT $
+listColumnFamilies :: MonadIO m => DBOptions -> FilePath -> m [String]
+listColumnFamilies dbOpts dbPath = liftIO $ runResourceT $
   do
     (_, dbOptsPtr) <- allocate (mkDBOpts dbOpts) C.optionsDestroy
     (_, pathPtr) <- allocate (newFilePath dbPath) free
@@ -163,19 +162,19 @@ listColumnFamilies dbOpts dbPath = ExceptT $ runResourceT $
     if errPtr == nullPtr
       then do
         cfCNames <- liftIO $ peekArray (cSizeToInt num) cfCNamesPtr
-        cfNames <- liftIO $ mapM peekCString cfCNames
-        return $ Right cfNames
+        liftIO $ mapM peekCString cfCNames
       else do
         errStr <- liftIO $ peekCString errPtr
-        return $ Left $ DBException $ "listColumnFamilies error: " ++ errStr
+        liftIO $ ioError $ userError $ "listColumnFamilies error: " ++ errStr
 
 openColumnFamilies ::
+  MonadIO m =>
   DBOptions ->
   FilePath ->
   [String] ->
   [DBOptions] ->
-  ExceptT DBException IO (DB, [ColumnFamily])
-openColumnFamilies dbOpts path cfNames cfOpts = ExceptT $ runResourceT $
+  m (DB, [ColumnFamily])
+openColumnFamilies dbOpts path cfNames cfOpts = liftIO $ runResourceT $
   do
     (_, dbOptsPtr) <- allocate (mkDBOpts dbOpts) C.optionsDestroy
     (_, pathPtr) <- allocate (newFilePath path) free
@@ -202,29 +201,29 @@ openColumnFamilies dbOpts path cfNames cfOpts = ExceptT $ runResourceT $
     if errPtr == nullPtr
       then do
         cfFPtrs <- liftIO $ mapM (newForeignPtr C.columnFamilyHandleDestroyFunPtr) cfHandles
-        return $ Right (DB dbPtr, map ColumnFamily cfFPtrs)
+        return (DB dbPtr, map ColumnFamily cfFPtrs)
       else do
         errStr <- liftIO $ peekCString errPtr
-        return $ Left $ DBException $ "openColumnFamilies error: " ++ errStr
+        liftIO $ ioError $ userError $ "openColumnFamilies error: " ++ errStr
 
-destroyColumnFamily :: ColumnFamily -> IO ()
-destroyColumnFamily (ColumnFamily cfPtr) = finalizeForeignPtr cfPtr
+destroyColumnFamily :: MonadIO m => ColumnFamily -> m ()
+destroyColumnFamily (ColumnFamily cfPtr) = liftIO $ finalizeForeignPtr cfPtr
 
-putCF :: DB -> WriteOptions -> ColumnFamily -> ByteString -> ByteString -> ExceptT DBException IO ()
-putCF (DB dbPtr) writeOpts (ColumnFamily cfPtr) key value = ExceptT $ withWriteOpts writeOpts putCF'
+putCF :: MonadIO m => DB -> WriteOptions -> ColumnFamily -> ByteString -> ByteString -> m ()
+putCF (DB dbPtr) writeOpts (ColumnFamily cfPtr) key value = liftIO $ withWriteOpts writeOpts putCF'
   where
     putCF' opts = do
       (cKey, cKeyLen) <- unsafeUseAsCStringLen key return
       (cValue, cValueLen) <- unsafeUseAsCStringLen value return
       errPtr <- C.putCf dbPtr opts cfPtr cKey (intToCSize cKeyLen) cValue (intToCSize cValueLen)
       if errPtr == nullPtr
-        then return $ Right ()
+        then return ()
         else do
           errStr <- liftIO $ peekCString errPtr
-          return $ Left $ DBException $ "putCF error: " ++ errStr
+          liftIO $ ioError $ userError $ "putCF error: " ++ errStr
 
-getCF :: DB -> ReadOptions -> ColumnFamily -> ByteString -> ExceptT DBException IO (Maybe ByteString)
-getCF (DB dbPtr) readOpts (ColumnFamily cfPtr) key = ExceptT $ withReadOpts readOpts getCF'
+getCF :: MonadIO m => DB -> ReadOptions -> ColumnFamily -> ByteString -> m (Maybe ByteString)
+getCF (DB dbPtr) readOpts (ColumnFamily cfPtr) key = liftIO $ withReadOpts readOpts getCF'
   where
     getCF' readOptsPtr = do
       (cKey, cKeyLen) <- unsafeUseAsCStringLen key return
@@ -232,13 +231,13 @@ getCF (DB dbPtr) readOpts (ColumnFamily cfPtr) key = ExceptT $ withReadOpts read
       if errPtr == nullPtr
         then
           if valuePtr == nullPtr
-            then return $ Right Nothing
+            then return Nothing
             else do
               value <- unsafePackCStringLen (valuePtr, cSizeToInt valueLen)
-              return $ Right $ Just value
+              return $ Just value
         else do
           errStr <- liftIO $ peekCString errPtr
-          return $ Left $ DBException $ "putCF error: " ++ errStr
+          liftIO $ ioError $ userError $ "getCF error: " ++ errStr
 
 rangeCF :: DB -> ReadOptions -> ColumnFamily -> Maybe ByteString -> Maybe ByteString -> Serial (ByteString, ByteString)
 rangeCF db readOpts cf firstKey lastKey =
@@ -285,265 +284,7 @@ rangeCF db readOpts cf firstKey lastKey =
             then return Nothing
             else do
               errStr <- peekCString errPtr
-              throwIO $ DBException $ "iterator error: " ++ errStr
-
---rangeCF :: DB -> ReadOptions -> ColumnFamily -> Maybe ByteString -> Maybe ByteString -> IO (ConduitT () (Maybe (ByteString, ByteString)) IO ())
---rangeCF db readOpts cf firstKey lastKey = withIteratorCF db readOpts cf $ \(Iterator iter) -> do
---  case firstKey of
---    Nothing -> C.iterSeekToFirst iter
---    Just k -> useAsCStringLen k (\(cStr, len) -> C.iterSeek iter cStr (intToCSize len))
---  return $ loop iter
---  where
---    getKVs :: C.IteratorFPtr -> ConduitT () (Maybe (ByteString, ByteString)) IO ()
---    getKVs iter = do
---      valid <- liftIO $ C.iterValid iter
---      if valid
---        then do
---          c <- liftIO $ pickCurrent iter
---          liftIO $ print c
---          yield $ Just c
---          liftIO $ C.iterNext iter
---          getKVs iter
---        else do
---          errPtr <- liftIO $ C.iterGetError iter
---          if errPtr == nullPtr
---            then yield Nothing
---            else do
---              errStr <- liftIO $ peekCString errPtr
---              liftIO $ print errStr
---              liftIO $ throwIO $ DBException $ "iterator error: " ++ errStr
---    pickCurrent iter = do
---      (valuePtr, valueLen) <- C.iterValue iter
---      print (valuePtr, valueLen)
---      (keyPtr, keyLen) <- C.iterKey iter
---      print (keyPtr, keyLen)
---      key <- packCStringLen (keyPtr, cSizeToInt keyLen)
---      -- key <- packCStringLen (keyPtr, 4)
---      value <- packCStringLen (valuePtr, cSizeToInt valueLen)
---      return (key, value)
---    loop :: C.IteratorFPtr -> ConduitT () (Maybe (ByteString, ByteString)) IO ()
---    loop iter = do
---      valid <- liftIO $ C.iterValid iter
---      if valid
---        then do
---          (key, value) <- liftIO $ pickCurrent iter
---          case lastKey of
---            Nothing -> do
---              yield $ Just (key, value)
---              liftIO $ C.iterNext iter
---              loop iter
---            Just last ->
---              when
---                (key <= last)
---                ( do
---                    yield $ Just (key, value)
---                    liftIO $ C.iterNext iter
---                    loop iter
---                )
---        else do
---          errPtr <- liftIO $ C.iterGetError iter
---          if errPtr == nullPtr
---            then yield Nothing
---            else do
---              errStr <- liftIO $ peekCString errPtr
---              liftIO $ print errStr
---              liftIO $ throwIO $ DBException $ "iterator error: " ++ errStr
---
---iterTest :: DB -> ReadOptions -> ColumnFamily -> Maybe ByteString -> Maybe ByteString -> IO ()
---iterTest db readOpts cf firstKey lastKey = withIteratorCF db readOpts cf ttt
---  where
---    loop iter = do
---      valid <- C.iterValid iter
---      when
---        (valid)
---        ( do
---            (kPtr, kLen) <- C.iterKey iter
---            (vPtr, vLen) <- C.iterValue iter
---            key <- packCStringLen (kPtr, cSizeToInt kLen)
---            value <- packCStringLen (vPtr, cSizeToInt vLen)
---            when
---              (maybe True (key <=) lastKey)
---              ( do
---                  print key
---                  print value
---                  C.iterNext iter
---                  loop iter
---              )
---        )
---    ttt (Iterator iter) = do
---      case firstKey of
---        Nothing -> C.iterSeekToFirst iter
---        Just k -> useAsCStringLen k (\(cStr, len) -> C.iterSeek iter cStr (intToCSize len))
---      loop iter
---
---iterTest0 :: DB -> ReadOptions -> ColumnFamily -> Maybe ByteString -> Maybe ByteString -> IO [Maybe (ByteString, ByteString)]
---iterTest0 db readOpts cf firstKey lastKey = withIteratorCF db readOpts cf ttt
---  where
---    loop iter = do
---      valid <- C.iterValid iter
---      if (valid)
---        then do
---          (kPtr, kLen) <- C.iterKey iter
---          (vPtr, vLen) <- C.iterValue iter
---          key <- packCStringLen (kPtr, cSizeToInt kLen)
---          value <- packCStringLen (vPtr, cSizeToInt vLen)
---          print (key, value)
---          if maybe True (key <=) lastKey
---            then do
---              C.iterNext iter
---              return $ Just (key, value)
---            else return Nothing
---        else return Nothing
---    www :: Monad m => m a -> (a -> Bool) -> m [a]
---    www ma t = do
---      a <- ma
---      if t a
---        then do
---          r <- www ma t
---          return $ a : r
---        else return [a]
---    ttt (Iterator iter) = do
---      case firstKey of
---        Nothing -> C.iterSeekToFirst iter
---        Just k -> useAsCStringLen k (\(cStr, len) -> C.iterSeek iter cStr (intToCSize len))
---      www (loop iter) isJust
---
---iterTest1 :: DB -> ReadOptions -> ColumnFamily -> Maybe ByteString -> Maybe ByteString -> IO (ConduitT () (Maybe (ByteString, ByteString)) IO ())
---iterTest1 db readOpts cf firstKey lastKey = withIteratorCF db readOpts cf ttt
---  where
---    loop :: C.IteratorFPtr -> ConduitT () (Maybe (ByteString, ByteString)) IO ()
---    loop iter = do
---      valid <- liftIO $ C.iterValid iter
---      when
---        (valid)
---        ( do
---            (kPtr, kLen) <- liftIO $ C.iterKey iter
---            (vPtr, vLen) <- liftIO $ C.iterValue iter
---            liftIO $ print (kPtr, kLen)
---            liftIO $ print (vPtr, vLen)
---            key <- liftIO $ packCStringLen (kPtr, cSizeToInt kLen)
---            value <- liftIO $ packCStringLen (vPtr, cSizeToInt vLen)
---            liftIO $ print (key, value)
---            when
---              (maybe True (key <=) lastKey)
---              ( do
---                  yield $ Just (key, value)
---                  liftIO $ C.iterNext iter
---                  loop iter
---              )
---        )
---    ttt :: Iterator -> IO (ConduitT () (Maybe (ByteString, ByteString)) IO ())
---    ttt (Iterator iter) = do
---      case firstKey of
---        Nothing -> C.iterSeekToFirst iter
---        Just k -> useAsCStringLen k (\(cStr, len) -> C.iterSeek iter cStr (intToCSize len))
---      return $ loop iter
---
---iterTest2 :: DB -> ReadOptions -> ColumnFamily -> Maybe ByteString -> Maybe ByteString -> IO (ConduitT () (Maybe (ByteString, ByteString)) IO ())
---iterTest2 db readOpts cf firstKey lastKey = withIteratorCF db readOpts cf ttt
---  where
---    loop iter = do
---      valid <- C.iterValid iter
---      if (valid)
---        then do
---          (kPtr, kLen) <- C.iterKey iter
---          (vPtr, vLen) <- C.iterValue iter
---          key <- packCStringLen (kPtr, cSizeToInt kLen)
---          value <- packCStringLen (vPtr, cSizeToInt vLen)
---          print (key, value)
---          if maybe True (key <=) lastKey
---            then do
---              C.iterNext iter
---              return $ Just (key, value)
---            else return Nothing
---        else return Nothing
---    ttt :: Iterator -> IO (ConduitT () (Maybe (ByteString, ByteString)) IO ())
---    ttt (Iterator iter) = do
---      case firstKey of
---        Nothing -> C.iterSeekToFirst iter
---        Just k -> useAsCStringLen k (\(cStr, len) -> C.iterSeek iter cStr (intToCSize len))
---      return $ repeatWhileMC (loop iter) isJust
---
---iterTest3 :: DB -> ReadOptions -> ColumnFamily -> Maybe ByteString -> Maybe ByteString -> Serial (Maybe (ByteString, ByteString))
---iterTest3 db readOpts cf firstKey lastKey = do
---  iterator <- liftIO $ createIteratorCF db readOpts cf
---  ttt iterator
---  where
---    loop iter = do
---      valid <- C.iterValid iter
---      if valid
---        then do
---          (kPtr, kLen) <- C.iterKey iter
---          (vPtr, vLen) <- C.iterValue iter
---          key <- packCStringLen (kPtr, cSizeToInt kLen)
---          value <- packCStringLen (vPtr, cSizeToInt vLen)
---          print (key, value)
---          if maybe True (key <=) lastKey
---            then do
---              C.iterNext iter
---              return $ Just (key, value)
---            else return Nothing
---        else return Nothing
---    www :: IO a -> (a -> Bool) -> Serial a
---    www ma t = do
---      a <- liftIO ma
---      if t a
---        then do
---          S.yieldM ma
---          www ma t
---        else S.yieldM ma
---    ttt :: Iterator -> Serial (Maybe (ByteString, ByteString))
---    ttt (Iterator iter) = do
---      case firstKey of
---        Nothing -> liftIO $ C.iterSeekToFirst iter
---        Just k -> liftIO $ useAsCStringLen k (\(cStr, len) -> C.iterSeek iter cStr (intToCSize len))
---      www (loop iter) isJust
---
---iterTest4 :: DB -> ReadOptions -> ColumnFamily -> Maybe ByteString -> Maybe ByteString -> Serial (ByteString, ByteString)
---iterTest4 db readOpts cf firstKey lastKey = do
---  iterator <- liftIO $ createIteratorCF db readOpts cf
---  ttt iterator
---  where
---    loop :: C.IteratorFPtr -> IO (Maybe (ByteString, ByteString))
---    loop iter = do
---      valid <- C.iterValid iter
---      if valid
---        then do
---          (kPtr, kLen) <- C.iterKey iter
---          (vPtr, vLen) <- C.iterValue iter
---          key <- packCStringLen (kPtr, cSizeToInt kLen)
---          value <- packCStringLen (vPtr, cSizeToInt vLen)
---          print (key, value)
---          C.iterNext iter
---          return $ Just (key, value)
---        else do
---          errPtr <- C.iterGetError iter
---          if errPtr == nullPtr
---            then return Nothing
---            else do
---              errStr <- peekCString errPtr
---              throwIO $ DBException $ "iterator error: " ++ errStr
---    ttt :: Iterator -> Serial (ByteString, ByteString)
---    ttt (Iterator iter) = do
---      case firstKey of
---        Nothing -> liftIO $ C.iterSeekToFirst iter
---        Just k -> liftIO $ useAsCStringLen k (\(cStr, len) -> C.iterSeek iter cStr (intToCSize len))
---      case lastKey of
---        Nothing ->
---          S.repeatM (loop iter)
---            & S.takeWhile isJust
---            & S.map
---              ( \case
---                  Just kv -> kv
---              )
---        Just k ->
---          S.repeatM (loop iter)
---            & S.takeWhile isJust
---            & S.map
---              ( \case
---                  Just kv -> kv
---              )
---            & S.takeWhile (\(key, _) -> key <= k)
+              liftIO $ ioError $ userError $ "rangeCF error: " ++ errStr
 
 intToCInt :: Int -> CInt
 intToCInt = fromIntegral

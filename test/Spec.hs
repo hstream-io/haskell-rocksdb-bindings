@@ -8,13 +8,13 @@ import Control.Exception (throwIO)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except (mapExceptT, runExceptT)
-import Control.Monad.Trans.Resource (MonadUnliftIO, ResourceT, allocate, release, runResourceT)
+import Control.Monad.Trans.Resource (MonadUnliftIO, ResourceT, allocate, register, release, runResourceT)
 import Data.ByteString (ByteString)
 import Data.Default (def)
 import Data.Either.Combinators (isRight)
 import Database.RocksDB
 import qualified Streamly.Prelude as S
-import System.IO.Temp (withSystemTempDirectory)
+import System.IO.Temp (createTempDirectory)
 import Test.Hspec
   ( describe,
     hspec,
@@ -27,505 +27,317 @@ main :: IO ()
 main = hspec $ describe "Basic DB Functionality" $
   do
     it "open db" $
-      withSystemTempDirectory
-        "rocksdb"
-        ( \path ->
-            do
-              e <-
-                runExceptT $ open path DBOptions {createIfMissing = True}
-              return $ either show (const "success") e
+      runResourceT
+        ( do
+            (dirKey, path) <- createTempDirectory Nothing "rocksdb"
+            (dbKey, _) <-
+              allocate
+                (open DBOptions {createIfMissing = True} path)
+                close
+            release dbKey
+            release dirKey
+            return "success"
         )
         `shouldReturn` "success"
     it "put kv to db" $
-      withSystemTempDirectory
-        "rocksdb"
-        ( \path ->
-            do
-              e <-
-                runExceptT $ do
-                  let opts = DBOptions {createIfMissing = True}
-                  db <- open path opts
-                  put db def "key" "value"
-              return $ either show (const "success") e
+      runResourceT
+        ( do
+            (dirKey, path) <- createTempDirectory Nothing "rocksdb"
+            (dbKey, db) <-
+              allocate
+                (open DBOptions {createIfMissing = True} path)
+                close
+            put db def "key" "value"
+            release dbKey
+            release dirKey
+            return "success"
         )
         `shouldReturn` "success"
     it "get value from db" $
-      withSystemTempDirectory
-        "rocksdb"
-        ( \path ->
-            do
-              e <-
-                runExceptT $ do
-                  let opts = DBOptions {createIfMissing = True}
-                  db <- open path opts
-                  put db def "key" "value"
-                  value <- get db def "key"
-                  case value of
-                    Nothing -> return ""
-                    Just v -> return v
-              return $ either (const "error") id e
+      runResourceT
+        ( do
+            (dirKey, path) <- createTempDirectory Nothing "rocksdb"
+            (dbKey, db) <-
+              allocate
+                (open DBOptions {createIfMissing = True} path)
+                close
+            put db def "key" "value"
+            value <- get db def "key"
+            release dbKey
+            release dirKey
+            return value
         )
-        `shouldReturn` "value"
+        `shouldReturn` Just "value"
     it "get nonexistent value from db" $
-      withSystemTempDirectory
-        "rocksdb"
-        ( \path ->
-            do
-              e <-
-                runExceptT $ do
-                  let opts = DBOptions {createIfMissing = True}
-                  db <- open path opts
-                  value <- get db def "key"
-                  case value of
-                    Nothing -> return ""
-                    Just v -> return v
-              return $ either (const "error") id e
+      runResourceT
+        ( do
+            (dirKey, path) <- createTempDirectory Nothing "rocksdb"
+            (dbKey, db) <-
+              allocate
+                (open DBOptions {createIfMissing = True} path)
+                close
+            value <- get db def "key"
+            release dbKey
+            release dirKey
+            return value
         )
-        `shouldReturn` ""
+        `shouldReturn` Nothing
+    it "range [firstKey, lastKey]" $
+      runResourceT
+        ( do
+            (dirKey, path) <- createTempDirectory Nothing "rocksdb"
+            (dbKey, db) <-
+              allocate
+                (open DBOptions {createIfMissing = True} path)
+                close
+            put db def "key1" "value1"
+            put db def "key2" "value2"
+            put db def "key3" "value3"
+            r <- liftIO $ S.toList $ range db def (Just "key1") (Just "key3")
+            release dbKey
+            release dirKey
+            return r
+        )
+        `shouldReturn` [("key1", "value1"), ("key2", "value2"), ("key3", "value3")]
     it "create column family" $
-      withSystemTempDirectory
-        "rocksdb"
-        ( \path ->
-            do
-              e <-
-                runExceptT $ do
-                  let opts = DBOptions {createIfMissing = True}
-                  db <- open path opts
-                  cf <- createColumnFamily db opts "cf"
-                  lift $ destroyColumnFamily cf
-                  lift $ close db
-              return $ either show (const "success") e
+      runResourceT
+        ( do
+            (dirKey, path) <- createTempDirectory Nothing "rocksdb"
+            let opts = DBOptions {createIfMissing = True}
+            (dbKey, db) <- allocate (open opts path) close
+            (cfKey, cf) <-
+              allocate
+                (createColumnFamily db opts "cf")
+                destroyColumnFamily
+            release cfKey
+            release dbKey
+            release dirKey
+            return "success"
         )
         `shouldReturn` "success"
     it "drop column family" $
-      withSystemTempDirectory
-        "rocksdb"
-        ( \path ->
-            do
-              e <-
-                runExceptT $ do
-                  let opts = DBOptions {createIfMissing = True}
-                  db <- open path opts
-                  cf <- createColumnFamily db opts "cf"
-                  dropColumnFamily db cf
-                  lift $ destroyColumnFamily cf
-                  lift $ close db
-              return $ either show (const "success") e
+      runResourceT
+        ( do
+            (dirKey, path) <- createTempDirectory Nothing "rocksdb"
+            let opts = DBOptions {createIfMissing = True}
+            (dbKey, db) <- allocate (open opts path) close
+            (cfKey, cf) <-
+              allocate
+                (createColumnFamily db opts "cf")
+                destroyColumnFamily
+            dropColumnFamily db cf
+            release cfKey
+            release dbKey
+            release dirKey
+            return "success"
         )
         `shouldReturn` "success"
     it "list column families" $
-      withSystemTempDirectory
-        "rocksdb"
-        ( \path ->
-            do
-              e <- runExceptT $ do
-                let opts = DBOptions {createIfMissing = True}
-                db <- open path opts
-                cf1 <- createColumnFamily db opts "cf1"
-                cf2 <- createColumnFamily db opts "cf2"
-                lift $ destroyColumnFamily cf1
-                lift $ destroyColumnFamily cf2
-                lift $ close db
-                listColumnFamilies opts path
-              return $ either show (const "success") e
+      runResourceT
+        ( do
+            (dirKey, path) <- createTempDirectory Nothing "rocksdb"
+            let opts = DBOptions {createIfMissing = True}
+            (dbKey, db) <- allocate (open opts path) close
+            (cf1Key, cf1) <-
+              allocate
+                (createColumnFamily db opts "cf1")
+                destroyColumnFamily
+            (cf2Key, cf2) <-
+              allocate
+                (createColumnFamily db opts "cf2")
+                destroyColumnFamily
+            r <- listColumnFamilies opts path
+            release cf1Key
+            release cf2Key
+            release dbKey
+            release dirKey
+            return r
         )
-        `shouldReturn` "success"
+        `shouldReturn` ["default", "cf1", "cf2"]
     it "open column families" $
-      withSystemTempDirectory
-        "rocksdb"
-        ( \path ->
-            do
-              e <- runExceptT $ do
-                let opts = DBOptions {createIfMissing = True}
-                db <- open path opts
-                cf1 <- createColumnFamily db opts "cf1"
-                cf2 <- createColumnFamily db opts "cf2"
-                lift $ destroyColumnFamily cf1
-                lift $ destroyColumnFamily cf2
-                lift $ close db
-                (db, cfs) <- openColumnFamilies opts path ["default", "cf1", "cf2"] [opts, opts, opts]
-                lift $ mapM destroyColumnFamily cfs
-                lift $ close db
-              return $ either show (const "success") e
+      runResourceT
+        ( do
+            (dirKey, path) <- createTempDirectory Nothing "rocksdb"
+            let opts = DBOptions {createIfMissing = True}
+            (dbKey, db) <- allocate (open opts path) close
+            (cf1Key, cf1) <-
+              allocate
+                (createColumnFamily db opts "cf1")
+                destroyColumnFamily
+            (cf2Key, cf2) <-
+              allocate
+                (createColumnFamily db opts "cf2")
+                destroyColumnFamily
+            release cf1Key
+            release cf2Key
+            release dbKey
+            (key, _) <-
+              allocate
+                ( openColumnFamilies
+                    opts
+                    path
+                    ["default", "cf1", "cf2"]
+                    [opts, opts, opts]
+                )
+                (\(newDb, cfs) -> mapM_ destroyColumnFamily cfs >> close newDb)
+            release key
+            release dirKey
+            return "success"
         )
         `shouldReturn` "success"
     it "put kv to column family" $
-      withSystemTempDirectory
-        "rocksdb"
-        ( \path ->
-            do
-              e <-
-                runExceptT $ do
-                  let opts = DBOptions {createIfMissing = True}
-                  db <- open path opts
-                  cf <- createColumnFamily db opts "cf"
-                  putCF db def cf "key" "value"
-                  lift $ destroyColumnFamily cf
-                  lift $ close db
-              return $ either show (const "success") e
+      runResourceT
+        ( do
+            (dirKey, path) <- createTempDirectory Nothing "rocksdb"
+            let opts = DBOptions {createIfMissing = True}
+            (dbKey, db) <- allocate (open opts path) close
+            (cfKey, cf) <-
+              allocate
+                (createColumnFamily db opts "cf")
+                destroyColumnFamily
+            putCF db def cf "key" "value"
+            release cfKey
+            release dbKey
+            release dirKey
+            return "success"
         )
         `shouldReturn` "success"
     it "get value from column family" $
-      withSystemTempDirectory
-        "rocksdb"
-        ( \path ->
-            do
-              e <-
-                runExceptT $ do
-                  let opts = DBOptions {createIfMissing = True}
-                  db <- open path opts
-                  cf <- createColumnFamily db opts "cf"
-                  putCF db def cf "key" "value"
-                  value <- getCF db def cf "key"
-                  lift $ destroyColumnFamily cf
-                  lift $ close db
-                  case value of
-                    Nothing -> return ""
-                    Just v -> return v
-              return $ either (const "error") id e
+      runResourceT
+        ( do
+            (dirKey, path) <- createTempDirectory Nothing "rocksdb"
+            let opts = DBOptions {createIfMissing = True}
+            (dbKey, db) <- allocate (open opts path) close
+            (cfKey, cf) <-
+              allocate
+                (createColumnFamily db opts "cf")
+                destroyColumnFamily
+            putCF db def cf "key" "value"
+            v <- getCF db def cf "key"
+            release cfKey
+            release dbKey
+            release dirKey
+            return v
         )
-        `shouldReturn` "value"
-    it "get nonexistent value from column family" $
-      withSystemTempDirectory
-        "rocksdb"
-        ( \path ->
-            do
-              e <-
-                runExceptT $ do
-                  let opts = DBOptions {createIfMissing = True}
-                  db <- open path opts
-                  cf <- createColumnFamily db opts "cf"
-                  value <- getCF db def cf "key"
-                  lift $ destroyColumnFamily cf
-                  lift $ close db
-                  case value of
-                    Nothing -> return ""
-                    Just v -> return v
-              return $ either (const "error") id e
+        `shouldReturn` Just "value"
+    it "get nonexsitent value from column family" $
+      runResourceT
+        ( do
+            (dirKey, path) <- createTempDirectory Nothing "rocksdb"
+            let opts = DBOptions {createIfMissing = True}
+            (dbKey, db) <- allocate (open opts path) close
+            (cfKey, cf) <-
+              allocate
+                (createColumnFamily db opts "cf")
+                destroyColumnFamily
+            v <- getCF db def cf "key"
+            release cfKey
+            release dbKey
+            release dirKey
+            return v
         )
-        `shouldReturn` ""
-    it "range [firstKey, lastKey]" $
-      withSystemTempDirectory
-        "rocksdb"
-        ( \path ->
-            do
-              er <-
-                runExceptT
-                  ( do
-                      let opts = DBOptions {createIfMissing = True}
-                      db <- open path opts
-                      put db def "key1" "value1"
-                      put db def "key2" "value2"
-                      put db def "key3" "value3"
-                      return db
-                  )
-              either
-                throwIO
-                ( \db ->
-                    do
-                      r <- S.toList $ range db def (Just "key1") (Just "key3")
-                      close db
-                      return r
-                )
-                er
-        )
-        `shouldReturn` [("key1", "value1"), ("key2", "value2"), ("key3", "value3")]
+        `shouldReturn` Nothing
     it "create iterator on column family" $
-      withSystemTempDirectory
-        "rocksdb"
-        ( \path ->
-            do
-              e <-
-                runExceptT $ do
-                  let opts = DBOptions {createIfMissing = True}
-                  db <- open path opts
-                  cf <- createColumnFamily db opts "cf"
-                  iter <- liftIO $ createIteratorCF db def cf
-                  lift $ destroyIterator iter
-                  lift $ destroyColumnFamily cf
-                  lift $ close db
-              return $ either show (const "success") e
+      runResourceT
+        ( do
+            (dirKey, path) <- createTempDirectory Nothing "rocksdb"
+            let opts = DBOptions {createIfMissing = True}
+            (dbKey, db) <- allocate (open opts path) close
+            (cfKey, cf) <-
+              allocate
+                (createColumnFamily db opts "cf")
+                destroyColumnFamily
+            (iterKey, iter) <-
+              allocate
+                (createIteratorCF db def cf)
+                destroyIterator
+            release iterKey
+            release cfKey
+            release dbKey
+            release dirKey
+            return "success"
         )
         `shouldReturn` "success"
-    --    it "range on column family" $
-    --      withSystemTempDirectory
-    --        "rocksdb"
-    --        ( \path ->
-    --            do
-    --              e <-
-    --                runExceptT $ do
-    --                  let opts = DBOptions {createIfMissing = True}
-    --                  db <- open path opts
-    --                  cf <- createColumnFamily db opts "cf"
-    --                  putCF db WriteOptions {setSync = False} cf "key1" "value1"
-    ----                  putCF db WriteOptions {setSync = False} cf "key2" "value2"
-    ----                  putCF db WriteOptions {setSync = False} cf "key3" "value3"
-    ----                  putCF db WriteOptions {setSync = False} cf "key4" "value4"
-    ----                  putCF db WriteOptions {setSync = False} cf "key5" "value5"
-    --                  source <- liftIO $ rangeCF db ReadOptions {setVerifyChecksums = True} cf (Just "key") Nothing
-    --                  r <- lift $ runConduit $ source .| sinkList
-    --                  lift $ destroyColumnFamily cf
-    --                  lift $ close db
-    --                  return r
-    --              return $ either (const []) id e
-    --        )
-    --        `shouldReturn` [Just ("key1", "value1"), Just ("key2", "value2"), Just ("key3", "value3")]
-    it "rangeCF [Nothing Nothing]" $
-      withSystemTempDirectory
-        "rocksdb"
-        ( \path ->
-            do
-              er <-
-                runExceptT
-                  ( do
-                      let opts = DBOptions {createIfMissing = True}
-                      db <- open path opts
-                      cf <- createColumnFamily db opts "cf"
-                      putCF db def cf "key1" "value1"
-                      putCF db def cf "key2" "value2"
-                      putCF db def cf "key3" "value3"
-                      return (db, cf)
-                  )
-              either
-                throwIO
-                ( \(db, cf) ->
-                    do
-                      r <- S.toList $ rangeCF db ReadOptions {setVerifyChecksums = True} cf Nothing Nothing
-                      destroyColumnFamily cf
-                      close db
-                      return r
-                )
-                er
+    it "rangeCF [firstKey, lastKey]" $
+      runResourceT
+        ( do
+            (dirKey, path) <- createTempDirectory Nothing "rocksdb"
+            let opts = DBOptions {createIfMissing = True}
+            (dbKey, db) <- allocate (open opts path) close
+            (cfKey, cf) <-
+              allocate
+                (createColumnFamily db opts "cf")
+                destroyColumnFamily
+            putCF db def cf "key1" "value1"
+            putCF db def cf "key2" "value2"
+            putCF db def cf "key3" "value3"
+            r <-
+              liftIO
+                $ S.toList
+                $ rangeCF db def cf (Just "key1") (Just "key3")
+            release cfKey
+            release dbKey
+            release dirKey
+            return r
         )
         `shouldReturn` [("key1", "value1"), ("key2", "value2"), ("key3", "value3")]
-    it "rangeCF [Nothing, lastKey]" $
-      withSystemTempDirectory
-        "rocksdb"
-        ( \path ->
-            do
-              er <-
-                runExceptT
-                  ( do
-                      let opts = DBOptions {createIfMissing = True}
-                      db <- open path opts
-                      cf <- createColumnFamily db opts "cf"
-                      putCF db def cf "key1" "value1"
-                      putCF db def cf "key2" "value2"
-                      putCF db def cf "key3" "value3"
-                      return (db, cf)
-                  )
-              either
-                throwIO
-                ( \(db, cf) ->
-                    do
-                      r <- S.toList $ rangeCF db ReadOptions {setVerifyChecksums = True} cf Nothing (Just "key2")
-                      destroyColumnFamily cf
-                      close db
-                      return r
-                )
-                er
+    it "rangeCF [firstKey, nothing]" $
+      runResourceT
+        ( do
+            (dirKey, path) <- createTempDirectory Nothing "rocksdb"
+            let opts = DBOptions {createIfMissing = True}
+            (dbKey, db) <- allocate (open opts path) close
+            (cfKey, cf) <-
+              allocate
+                (createColumnFamily db opts "cf")
+                destroyColumnFamily
+            putCF db def cf "key1" "value1"
+            putCF db def cf "key2" "value2"
+            putCF db def cf "key3" "value3"
+            r <- liftIO $ S.toList $ rangeCF db def cf (Just "key1") Nothing
+            release cfKey
+            release dbKey
+            release dirKey
+            return r
         )
-        `shouldReturn` [("key1", "value1"), ("key2", "value2")]
-    it "rangeCF [firstKey, Nothing]" $
-      withSystemTempDirectory
-        "rocksdb"
-        ( \path ->
-            do
-              er <-
-                runExceptT
-                  ( do
-                      let opts = DBOptions {createIfMissing = True}
-                      db <- open path opts
-                      cf <- createColumnFamily db opts "cf"
-                      putCF db def cf "key1" "value1"
-                      putCF db def cf "key2" "value2"
-                      putCF db def cf "key3" "value3"
-                      return (db, cf)
-                  )
-              either
-                throwIO
-                ( \(db, cf) ->
-                    do
-                      r <- S.toList $ rangeCF db def cf (Just "key2") Nothing
-                      destroyColumnFamily cf
-                      close db
-                      return r
-                )
-                er
+        `shouldReturn` [("key1", "value1"), ("key2", "value2"), ("key3", "value3")]
+    it "rangeCF [nothing, lastKey]" $
+      runResourceT
+        ( do
+            (dirKey, path) <- createTempDirectory Nothing "rocksdb"
+            let opts = DBOptions {createIfMissing = True}
+            (dbKey, db) <- allocate (open opts path) close
+            (cfKey, cf) <-
+              allocate
+                (createColumnFamily db opts "cf")
+                destroyColumnFamily
+            putCF db def cf "key1" "value1"
+            putCF db def cf "key2" "value2"
+            putCF db def cf "key3" "value3"
+            r <- liftIO $ S.toList $ rangeCF db def cf Nothing (Just "key3")
+            release cfKey
+            release dbKey
+            release dirKey
+            return r
         )
-        `shouldReturn` [("key2", "value2"), ("key3", "value3")]
-    it "rangeCF [firstKey, lastKey]" $
-      withSystemTempDirectory
-        "rocksdb"
-        ( \path ->
-            do
-              er <-
-                runExceptT
-                  ( do
-                      let opts = DBOptions {createIfMissing = True}
-                      db <- open path opts
-                      cf <- createColumnFamily db opts "cf"
-                      putCF db def cf "key1" "value1"
-                      putCF db def cf "key2" "value2"
-                      putCF db def cf "key3" "value3"
-                      return (db, cf)
-                  )
-              either
-                throwIO
-                ( \(db, cf) ->
-                    do
-                      r <- S.toList $ rangeCF db def cf (Just "key2") (Just "key2")
-                      destroyColumnFamily cf
-                      close db
-                      return r
-                )
-                er
+        `shouldReturn` [("key1", "value1"), ("key2", "value2"), ("key3", "value3")]
+    it "rangeCF [nothing, nothing]" $
+      runResourceT
+        ( do
+            (dirKey, path) <- createTempDirectory Nothing "rocksdb"
+            let opts = DBOptions {createIfMissing = True}
+            (dbKey, db) <- allocate (open opts path) close
+            (cfKey, cf) <-
+              allocate
+                (createColumnFamily db opts "cf")
+                destroyColumnFamily
+            putCF db def cf "key1" "value1"
+            putCF db def cf "key2" "value2"
+            putCF db def cf "key3" "value3"
+            r <- liftIO $ S.toList $ rangeCF db def cf Nothing Nothing
+            release cfKey
+            release dbKey
+            release dirKey
+            return r
         )
-        `shouldReturn` [("key2", "value2")]
---    it "iter test" $
---      withSystemTempDirectory
---        "rocksdb"
---        ( \path ->
---            do
---              e <-
---                runExceptT $ do
---                  let opts = DBOptions {createIfMissing = True}
---                  db <- open path opts
---                  cf <- createColumnFamily db opts "cf"
---                  putCF db WriteOptions {setSync = True} cf "key1" "value1"
---                  putCF db WriteOptions {setSync = True} cf "key2" "value2"
---                  putCF db WriteOptions {setSync = True} cf "key3" "value3"
---                  lift $ iterTest db ReadOptions {setVerifyChecksums = False} cf (Just "key2") (Just "key3")
---                  lift $ destroyColumnFamily cf
---                  lift $ close db
---              return $ either show show e
---        )
---        `shouldReturn` ""
---    it "iterTest0" $
---      withSystemTempDirectory
---        "rocksdb"
---        ( \path ->
---            do
---              e <-
---                runExceptT $ do
---                  let opts = DBOptions {createIfMissing = True}
---                  db <- open path opts
---                  cf <- createColumnFamily db opts "cf"
---                  putCF db WriteOptions {setSync = False} cf "key1" "value1"
---                  putCF db WriteOptions {setSync = False} cf "key2" "value2"
---                  putCF db WriteOptions {setSync = False} cf "key3" "value3"
---                  r <- liftIO $ iterTest0 db ReadOptions {setVerifyChecksums = False} cf Nothing Nothing
---                  lift $ destroyColumnFamily cf
---                  lift $ close db
---                  return r
---              return $ either (const []) id e
---        )
---        `shouldReturn` [Just ("key1", "value1"), Just ("key2", "value2"), Just ("key3", "value3")]
---    it "iterTest2" $
---      withSystemTempDirectory
---        "rocksdb"
---        ( \path ->
---            do
---              e <-
---                runExceptT $ do
---                  let opts = DBOptions {createIfMissing = True}
---                  db <- open path opts
---                  cf <- createColumnFamily db opts "cf"
---                  putCF db WriteOptions {setSync = False} cf "key1" "value1"
---                  putCF db WriteOptions {setSync = False} cf "key2" "value2"
---                  putCF db WriteOptions {setSync = False} cf "key3" "value3"
---                  source <- liftIO $ iterTest2 db ReadOptions {setVerifyChecksums = True} cf Nothing Nothing
---                  r <- lift $ runConduit $ source .| sinkList
---                  lift $ destroyColumnFamily cf
---                  lift $ close db
---                  return r
---              return $ either (const []) id e
---        )
---        `shouldReturn` [Just ("key1", "value1"), Just ("key2", "value2"), Just ("key3", "value3")]
---    it "iterTest3" $
---      withSystemTempDirectory
---        "rocksdb"
---        ( \path ->
---            do
---              er <- runExceptT
---                (
---                  do
---                    let opts = DBOptions {createIfMissing = True}
---                    db <- open path opts
---                    cf <- createColumnFamily db opts "cf"
---                    putCF db WriteOptions {setSync = False} cf "key1" "value1"
---                    putCF db WriteOptions {setSync = False} cf "key2" "value2"
---                    putCF db WriteOptions {setSync = False} cf "key3" "value3"
---                    return (db, cf)
---                )
---              either
---                throwIO
---                (
---                  \(db, cf) ->
---                    do
---                      r <- S.toList $ iterTest3 db ReadOptions {setVerifyChecksums = True} cf Nothing Nothing
---                      destroyColumnFamily cf
---                      close db
---                      return r
---                )
---                er
---        )
---        `shouldReturn` [Just ("key1", "value1"), Just ("key2", "value2"), Just ("key3", "value3")]
---    it "iterTest4" $
---      withSystemTempDirectory
---        "rocksdb"
---        ( \path ->
---            do
---              er <- runExceptT
---                (
---                  do
---                    let opts = DBOptions {createIfMissing = True}
---                    db <- open path opts
---                    cf <- createColumnFamily db opts "cf"
---                    putCF db WriteOptions {setSync = False} cf "key1" "value1"
---                    putCF db WriteOptions {setSync = False} cf "key2" "value2"
---                    putCF db WriteOptions {setSync = False} cf "key3" "value3"
---                    return (db, cf)
---                )
---              either
---                throwIO
---                (
---                  \(db, cf) ->
---                    do
---                      r <- S.toList $ iterTest4 db ReadOptions {setVerifyChecksums = True} cf Nothing Nothing
---                      destroyColumnFamily cf
---                      close db
---                      return r
---                )
---                er
---        )
---        `shouldReturn` [("key1", "value1"), ("key2", "value2"), ("key3", "value3")]
---    it "iterTest4-1" $
---      withSystemTempDirectory
---        "rocksdb"
---        ( \path ->
---            do
---              er <- runExceptT
---                (
---                  do
---                    let opts = DBOptions {createIfMissing = True}
---                    db <- open path opts
---                    cf <- createColumnFamily db opts "cf"
---                    putCF db WriteOptions {setSync = False} cf "key1" "value1"
---                    putCF db WriteOptions {setSync = False} cf "key2" "value2"
---                    putCF db WriteOptions {setSync = False} cf "key3" "value3"
---                    return (db, cf)
---                )
---              either
---                throwIO
---                (
---                  \(db, cf) ->
---                    do
---                      r <- S.toList $ iterTest4 db ReadOptions {setVerifyChecksums = True} cf (Just "key2") (Just "key2")
---                      destroyColumnFamily cf
---                      close db
---                      return r
---                )
---                er
---        )
---        `shouldReturn` [("key2", "value2")]
+        `shouldReturn` [("key1", "value1"), ("key2", "value2"), ("key3", "value3")]
