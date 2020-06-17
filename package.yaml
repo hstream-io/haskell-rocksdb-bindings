@@ -21,6 +21,7 @@ dependencies:
 - conduit
 - streamly
 - data-default
+- binary
 
 library:
   source-dirs: src

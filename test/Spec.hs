@@ -5,7 +5,7 @@ module Main where
 
 import Conduit ((.|), runConduit, sinkList)
 import Control.Exception (throwIO)
-import Control.Monad.IO.Class (liftIO)
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except (mapExceptT, runExceptT)
 import Control.Monad.Trans.Resource (MonadUnliftIO, ResourceT, allocate, register, release, runResourceT)
@@ -13,6 +13,7 @@ import Data.ByteString (ByteString)
 import Data.Default (def)
 import Data.Either.Combinators (isRight)
 import Database.RocksDB
+import Database.RocksDB.Util
 import qualified Streamly.Prelude as S
 import System.IO.Temp (createTempDirectory)
 import Test.Hspec
@@ -24,8 +25,8 @@ import Test.Hspec
   )
 
 main :: IO ()
-main = hspec $ describe "Basic DB Functionality" $
-  do
+main = hspec $ do
+  describe "Basic DB Functionality" $ do
     it "open db" $
       runResourceT
         ( do
@@ -341,3 +342,27 @@ main = hspec $ describe "Basic DB Functionality" $
             return r
         )
         `shouldReturn` [("key1", "value1"), ("key2", "value2"), ("key3", "value3")]
+  describe "large data test" $ do
+    it "put many items to db" $
+      runResourceT
+        ( do
+            (dirKey, path) <- createTempDirectory Nothing "rocksdb"
+            (dbKey, db) <-
+              allocate
+                (open DBOptions {createIfMissing = True} path)
+                close
+            putKVs 4097 db
+            release dbKey
+            release dirKey
+            return "success"
+        )
+        `shouldReturn` "success"
+
+putKVs :: MonadIO m => Int -> DB -> m ()
+putKVs num db = putKVs' 1
+  where
+    putKVs' x = do
+      put db def (serialize ("key" ++ show x)) (serialize ("value" ++ show x))
+      if (x == num)
+        then return ()
+        else putKVs' $ x + 1

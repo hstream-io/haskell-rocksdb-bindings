@@ -19,6 +19,7 @@ import qualified Database.RocksDB.C as C
 import Database.RocksDB.Iterator
 import Database.RocksDB.Options
 import Database.RocksDB.Types
+import Database.RocksDB.Util
 import Foreign.C.String (newCString, peekCString, peekCStringLen, withCString)
 import Foreign.C.Types (CInt, CSize)
 import Foreign.ForeignPtr (finalizeForeignPtr, newForeignPtr)
@@ -54,6 +55,8 @@ put (DB dbPtr) writeOpts key value = liftIO $ withWriteOpts writeOpts put'
     put' opts = do
       (cKey, cKeyLen) <- unsafeUseAsCStringLen key return
       (cValue, cValueLen) <- unsafeUseAsCStringLen value return
+      -- (cKey, cKeyLen) <- useAsCStringLen key return
+      -- (cValue, cValueLen) <- useAsCStringLen value return
       errPtr <- C.put dbPtr opts cKey (intToCSize cKeyLen) cValue (intToCSize cValueLen)
       if errPtr == nullPtr
         then return ()
@@ -285,12 +288,3 @@ rangeCF db readOpts cf firstKey lastKey =
             else do
               errStr <- peekCString errPtr
               liftIO $ ioError $ userError $ "rangeCF error: " ++ errStr
-
-intToCInt :: Int -> CInt
-intToCInt = fromIntegral
-
-cSizeToInt :: CSize -> Int
-cSizeToInt = fromIntegral
-
-intToCSize :: Int -> CSize
-intToCSize = fromIntegral

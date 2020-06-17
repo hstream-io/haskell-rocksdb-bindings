@@ -44,6 +44,12 @@ import Foreign.Marshal.Array (withArray, peekArray)
 import Foreign.Ptr
 import Foreign.Storable
 
+allocaNullPtr :: Storable a => (Ptr (Ptr a) -> IO b) -> IO b
+allocaNullPtr f = alloca (\ptr -> poke ptr nullPtr >> f ptr)
+
+allocaCSize :: (Ptr CSize -> IO b) -> IO b
+allocaCSize f = alloca (\ptr -> poke ptr 0 >> f ptr)
+
 #include "rocksdb/c.h"
 
 {#typedef size_t CSize#}
@@ -96,31 +102,31 @@ import Foreign.Storable
 
 -- db
 
-{#fun open as ^ { `DBOptionsPtr', `CString', alloca- `CString' peek*} -> `DBFPtr' #}
+{#fun open as ^ { `DBOptionsPtr', `CString', allocaNullPtr- `CString' peek*} -> `DBFPtr' #}
 
-{#fun put as ^ { `DBFPtr', `WriteOptionsPtr', `CString', `CSize', `CString', `CSize', alloca- `CString' peek*} -> `()' #}
+{#fun put as ^ { `DBFPtr', `WriteOptionsPtr', `CString', `CSize', `CString', `CSize', allocaNullPtr- `CString' peek*} -> `()' #}
 
-{#fun get as ^ { `DBFPtr', `ReadOptionsPtr', `CString', `CSize', alloca- `CSize' peek*, alloca- `CString' peek*} -> `CString' #}
+{#fun get as ^ { `DBFPtr', `ReadOptionsPtr', `CString', `CSize', allocaCSize- `CSize' peek*, allocaNullPtr- `CString' peek*} -> `CString' #}
 
 {#fun create_iterator as ^ {`DBFPtr', `ReadOptionsPtr'} -> `IteratorFPtr' #}
 
 -- column family
 
-{#fun create_column_family as ^ { `DBFPtr', `DBOptionsPtr', `CString', alloca- `CString' peek*} -> `CFFPtr' #}
+{#fun create_column_family as ^ { `DBFPtr', `DBOptionsPtr', `CString', allocaNullPtr- `CString' peek*} -> `CFFPtr' #}
 
-{#fun drop_column_family as ^ { `DBFPtr', `CFFPtr', alloca- `CString' peek*} -> `()' #}
+{#fun drop_column_family as ^ { `DBFPtr', `CFFPtr', allocaNullPtr- `CString' peek*} -> `()' #}
 
-{#fun list_column_families as ^ { `DBOptionsPtr', `CString', alloca- `CSize' peek*, alloca- `CString' peek*} -> `Ptr CString' id #}
+{#fun list_column_families as ^ { `DBOptionsPtr', `CString', allocaCSize- `CSize' peek*, allocaNullPtr- `CString' peek*} -> `Ptr CString' id #}
 
 {#fun open_column_families as ^ { `DBOptionsPtr', `CString', `CInt',
 withArray* `[CString]' ,
 withArray* `[DBOptionsPtr]' ,
 id `Ptr CFPtr' ,
-alloca- `CString' peek*} -> `DBFPtr' #}
+allocaNullPtr- `CString' peek*} -> `DBFPtr' #}
 
-{#fun put_cf as ^ { `DBFPtr', `WriteOptionsPtr', `CFFPtr', `CString', `CSize', `CString', `CSize', alloca- `CString' peek*} -> `()' #}
+{#fun put_cf as ^ { `DBFPtr', `WriteOptionsPtr', `CFFPtr', `CString', `CSize', `CString', `CSize', allocaNullPtr- `CString' peek*} -> `()' #}
 
-{#fun get_cf as ^ { `DBFPtr', `ReadOptionsPtr', `CFFPtr', `CString', `CSize', alloca- `CSize' peek*, alloca- `CString' peek*} -> `CString' #}
+{#fun get_cf as ^ { `DBFPtr', `ReadOptionsPtr', `CFFPtr', `CString', `CSize', allocaCSize- `CSize' peek*, allocaNullPtr- `CString' peek*} -> `CString' #}
 
 {#fun create_iterator_cf as ^ {`DBFPtr', `ReadOptionsPtr', `CFFPtr'} -> `IteratorFPtr' #}
 
@@ -136,10 +142,10 @@ alloca- `CString' peek*} -> `DBFPtr' #}
 
 {#fun iter_next as ^ {`IteratorFPtr'} -> `()' #}
 
-{#fun iter_key as ^ {`IteratorFPtr', alloca- `CSize' peek*} -> `CString' #}
+{#fun iter_key as ^ {`IteratorFPtr', allocaCSize- `CSize' peek*} -> `CString' #}
 
-{#fun iter_value as ^ {`IteratorFPtr', alloca- `CSize' peek*} -> `CString' #}
+{#fun iter_value as ^ {`IteratorFPtr', allocaCSize- `CSize' peek*} -> `CString' #}
 
-{#fun iter_get_error as ^ {`IteratorFPtr', alloca- `CString' peek*} -> `()' #}
+{#fun iter_get_error as ^ {`IteratorFPtr', allocaNullPtr- `CString' peek*} -> `()' #}
 
 

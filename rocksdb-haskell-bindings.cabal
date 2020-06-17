@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 123b11fead9b63f2afbe0d11c8fc946fb48e188c42819160d38e57129bb945d1
+-- hash: be4b59318059314a2d7d7739fbf7119c5d2b81e51a00de4e797f89334349dc35
 
 name:           rocksdb-haskell-bindings
 version:        0.1.0.0
@@ -33,6 +33,7 @@ library
       Database.RocksDB.Iterator
       Database.RocksDB.Options
       Database.RocksDB.Types
+      Database.RocksDB.Util
   other-modules:
       Paths_rocksdb_haskell_bindings
   hs-source-dirs:
@@ -43,6 +44,7 @@ library
       c2hs
   build-depends:
       base >=4.7 && <5
+    , binary
     , bytestring
     , conduit
     , data-default
@@ -62,6 +64,7 @@ test-suite rocksdb-haskell-bindings-test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , binary
     , bytestring
     , conduit
     , data-default
