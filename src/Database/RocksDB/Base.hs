@@ -174,16 +174,15 @@ openColumnFamilies ::
   MonadIO m =>
   DBOptions ->
   FilePath ->
-  [String] ->
-  [DBOptions] ->
+  [ColumnFamilyDescriptor] ->
   m (DB, [ColumnFamily])
-openColumnFamilies dbOpts path cfNames cfOpts = liftIO $ runResourceT $
+openColumnFamilies dbOpts path cfDescriptors = liftIO $ runResourceT $
   do
     (_, dbOptsPtr) <- allocate (mkDBOpts dbOpts) C.optionsDestroy
     (_, pathPtr) <- allocate (newFilePath path) free
-    (_, cfCNames) <- allocate (mapM newCString cfNames) (mapM_ free)
-    (_, cfOptsPtr) <- allocate (mapM mkDBOpts cfOpts) (mapM_ C.optionsDestroy)
-    let num = length cfNames
+    (_, cfCNames) <- allocate (mapM (newCString . name) cfDescriptors) (mapM_ free)
+    (_, cfOptsPtr) <- allocate (mapM (mkDBOpts . options) cfDescriptors) (mapM_ C.optionsDestroy)
+    let num = length cfDescriptors
     let emptyCfHandles = replicate num nullPtr
     (dbPtr, cfHandles, errPtr) <-
       liftIO $
