@@ -16,6 +16,7 @@ module Database.RocksDB.C (
     optionsCreate,
     optionsDestroy,
     optionsSetCreateIfMissing,
+    optionsSetCreateMissingColumnFamilies,
     writeoptionsCreate,
     writeoptionsDestroy,
     writeoptionsSetSync,
@@ -85,6 +86,8 @@ allocaCSize f = alloca (\ptr -> poke ptr 0 >> f ptr)
 {#fun options_destroy as ^ { `DBOptionsPtr' } -> `()' #}
 
 {#fun options_set_create_if_missing as ^ { `DBOptionsPtr', `Bool' } -> `()' #}
+
+{#fun options_set_create_missing_column_families as ^ { `DBOptionsPtr', `Bool' } -> `()' #}
 
 -- writeOptions
 
