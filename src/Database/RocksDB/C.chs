@@ -29,7 +29,9 @@ module Database.RocksDB.C (
     iterSeekToFirst,
     iterSeekToLast,
     iterSeek,
+    iterSeekForPrev,
     iterNext,
+    iterPrev,
     iterKey,
     iterValue,
     iterGetError,
@@ -143,7 +145,11 @@ allocaNullPtr- `CString' peek*} -> `DBFPtr' #}
 
 {#fun iter_seek as ^ {`IteratorFPtr', `CString', `CSize'} -> `()' #}
 
+{#fun iter_seek_for_prev as ^ {`IteratorFPtr', `CString', `CSize'} -> `()' #}
+
 {#fun iter_next as ^ {`IteratorFPtr'} -> `()' #}
+
+{#fun iter_prev as ^ {`IteratorFPtr'} -> `()' #}
 
 {#fun iter_key as ^ {`IteratorFPtr', allocaCSize- `CSize' peek*} -> `CString' #}
 

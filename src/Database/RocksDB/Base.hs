@@ -89,10 +89,10 @@ range db readOpts firstKey lastKey =
     generateStream
   where
     generateStream :: Iterator -> Serial (ByteString, ByteString)
-    generateStream (Iterator iter) = do
+    generateStream iter = do
       case firstKey of
-        Nothing -> liftIO $ C.iterSeekToFirst iter
-        Just k -> liftIO $ useAsCStringLen k (\(cStr, len) -> C.iterSeek iter cStr (intToCSize len))
+        Nothing -> seekToFirst iter
+        Just k -> seek iter k
       case lastKey of
         Nothing ->
           S.repeatM (getKV iter)
@@ -109,24 +109,20 @@ range db readOpts firstKey lastKey =
                   Just kv -> kv
               )
             & S.takeWhile (\(key, _) -> key <= k)
-    getKV :: C.IteratorFPtr -> IO (Maybe (ByteString, ByteString))
+    getKV :: Iterator -> IO (Maybe (ByteString, ByteString))
     getKV iter = do
-      valid <- C.iterValid iter
+      valid <- valid iter
       if valid
         then do
-          (kPtr, kLen) <- C.iterKey iter
-          (vPtr, vLen) <- C.iterValue iter
-          key <- packCStringLen (kPtr, cSizeToInt kLen)
-          value <- packCStringLen (vPtr, cSizeToInt vLen)
-          C.iterNext iter
+          key <- key iter
+          value <- value iter
+          next iter
           return $ Just (key, value)
         else do
-          errPtr <- C.iterGetError iter
-          if errPtr == nullPtr
-            then return Nothing
-            else do
-              errStr <- peekCString errPtr
-              ioError $ userError $ "iterator error: " ++ errStr
+          errStr <- getError iter
+          case errStr of
+            Nothing -> return Nothing
+            Just str -> liftIO $ ioError $ userError $ "range error: " ++ str
 
 createColumnFamily :: MonadIO m => DB -> DBOptions -> String -> m ColumnFamily
 createColumnFamily (DB dbPtr) opts name = liftIO $ withDBOpts opts mkCF
@@ -249,10 +245,10 @@ rangeCF db readOpts cf firstKey lastKey =
     generateStream
   where
     generateStream :: Iterator -> Serial (ByteString, ByteString)
-    generateStream (Iterator iter) = do
+    generateStream iter = do
       case firstKey of
-        Nothing -> liftIO $ C.iterSeekToFirst iter
-        Just k -> liftIO $ useAsCStringLen k (\(cStr, len) -> C.iterSeek iter cStr (intToCSize len))
+        Nothing -> seekToFirst iter
+        Just k -> seek iter k
       case lastKey of
         Nothing ->
           S.repeatM (getKV iter)
@@ -269,21 +265,17 @@ rangeCF db readOpts cf firstKey lastKey =
                   Just kv -> kv
               )
             & S.takeWhile (\(key, _) -> key <= k)
-    getKV :: C.IteratorFPtr -> IO (Maybe (ByteString, ByteString))
+    getKV :: Iterator -> IO (Maybe (ByteString, ByteString))
     getKV iter = do
-      valid <- C.iterValid iter
+      valid <- valid iter
       if valid
         then do
-          (kPtr, kLen) <- C.iterKey iter
-          (vPtr, vLen) <- C.iterValue iter
-          key <- packCStringLen (kPtr, cSizeToInt kLen)
-          value <- packCStringLen (vPtr, cSizeToInt vLen)
-          C.iterNext iter
+          key <- key iter
+          value <- value iter
+          next iter
           return $ Just (key, value)
         else do
-          errPtr <- C.iterGetError iter
-          if errPtr == nullPtr
-            then return Nothing
-            else do
-              errStr <- peekCString errPtr
-              liftIO $ ioError $ userError $ "rangeCF error: " ++ errStr
+          errStr <- getError iter
+          case errStr of
+            Nothing -> return Nothing
+            Just str -> liftIO $ ioError $ userError $ "rangeCF error: " ++ str
