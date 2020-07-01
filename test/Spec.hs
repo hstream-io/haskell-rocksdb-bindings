@@ -3,7 +3,7 @@
 
 module Main where
 
-import Conduit ((.|), runConduit, sinkList)
+import Conduit (runConduit, sinkList, (.|))
 import Control.Exception (throwIO)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Trans.Class (lift)
@@ -263,9 +263,9 @@ main = hspec $ do
             putCF db def cf "key2" "value2"
             putCF db def cf "key3" "value3"
             r <-
-              liftIO
-                $ S.toList
-                $ rangeCF db def cf (Just "key1") (Just "key3")
+              liftIO $
+                S.toList $
+                  rangeCF db def cf (Just "key1") (Just "key3")
             release cfKey
             release dbKey
             release dirKey
@@ -332,6 +332,29 @@ main = hspec $ do
             return r
         )
         `shouldReturn` [("key1", "value1"), ("key2", "value2"), ("key3", "value3")]
+    it "write batch" $
+      runResourceT
+        ( do
+            (dirKey, path) <- createTempDirectory Nothing "rocksdb"
+            let opts = defaultDBOptions {createIfMissing = True}
+            (dbKey, db) <- allocate (open opts path) close
+            (cfKey, cf) <-
+              allocate
+                (createColumnFamily db opts "cf")
+                destroyColumnFamily
+            (batchKey, batch) <-
+              allocate createWriteBatch destroyWriteBatch
+            batchPutCF batch cf "key1" "value1"
+            batchPutCF batch cf "key2" "value2"
+            batchPutCF batch cf "key3" "value3"
+            write db def batch
+            release batchKey
+            release cfKey
+            release dbKey
+            release dirKey
+            return "success"
+        )
+        `shouldReturn` "success"
   describe "large data test" $ do
     it "put many items to db" $
       runResourceT
