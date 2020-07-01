@@ -8,8 +8,7 @@ newtype DB = DB C.DBFPtr
 
 newtype ColumnFamily = ColumnFamily C.CFFPtr
 
-data ColumnFamilyDescriptor
-  = ColumnFamilyDescriptor
-      { name :: String,
-        options :: DBOptions
-      }
+data ColumnFamilyDescriptor = ColumnFamilyDescriptor
+  { name :: String,
+    options :: DBOptions
+  }

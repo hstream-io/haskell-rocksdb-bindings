@@ -20,6 +20,7 @@ import Database.RocksDB.Iterator
 import Database.RocksDB.Options
 import Database.RocksDB.Types
 import Database.RocksDB.Util
+import Database.RocksDB.WriteBatch
 import Foreign.C.String (newCString, peekCString, peekCStringLen, withCString)
 import Foreign.C.Types (CInt, CSize)
 import Foreign.ForeignPtr (finalizeForeignPtr, newForeignPtr)
@@ -153,18 +154,19 @@ dropColumnFamily (DB dbPtr) (ColumnFamily cfPtr) = liftIO $ do
       ioError $ userError $ "dropColumnFamily error: " ++ errStr
 
 listColumnFamilies :: MonadIO m => DBOptions -> FilePath -> m [String]
-listColumnFamilies dbOpts dbPath = liftIO $ runResourceT $
-  do
-    (_, dbOptsPtr) <- allocate (mkDBOpts dbOpts) C.optionsDestroy
-    (_, pathPtr) <- allocate (newFilePath dbPath) free
-    (cfCNamesPtr, num, errPtr) <- liftIO $ C.listColumnFamilies dbOptsPtr pathPtr
-    if errPtr == nullPtr
-      then do
-        cfCNames <- liftIO $ peekArray (cSizeToInt num) cfCNamesPtr
-        liftIO $ mapM peekCString cfCNames
-      else do
-        errStr <- liftIO $ peekCString errPtr
-        liftIO $ ioError $ userError $ "listColumnFamilies error: " ++ errStr
+listColumnFamilies dbOpts dbPath = liftIO $
+  runResourceT $
+    do
+      (_, dbOptsPtr) <- allocate (mkDBOpts dbOpts) C.optionsDestroy
+      (_, pathPtr) <- allocate (newFilePath dbPath) free
+      (cfCNamesPtr, num, errPtr) <- liftIO $ C.listColumnFamilies dbOptsPtr pathPtr
+      if errPtr == nullPtr
+        then do
+          cfCNames <- liftIO $ peekArray (cSizeToInt num) cfCNamesPtr
+          liftIO $ mapM peekCString cfCNames
+        else do
+          errStr <- liftIO $ peekCString errPtr
+          liftIO $ ioError $ userError $ "listColumnFamilies error: " ++ errStr
 
 openColumnFamilies ::
   MonadIO m =>
@@ -172,37 +174,38 @@ openColumnFamilies ::
   FilePath ->
   [ColumnFamilyDescriptor] ->
   m (DB, [ColumnFamily])
-openColumnFamilies dbOpts path cfDescriptors = liftIO $ runResourceT $
-  do
-    (_, dbOptsPtr) <- allocate (mkDBOpts dbOpts) C.optionsDestroy
-    (_, pathPtr) <- allocate (newFilePath path) free
-    (_, cfCNames) <- allocate (mapM (newCString . name) cfDescriptors) (mapM_ free)
-    (_, cfOptsPtr) <- allocate (mapM (mkDBOpts . options) cfDescriptors) (mapM_ C.optionsDestroy)
-    let num = length cfDescriptors
-    let emptyCfHandles = replicate num nullPtr
-    (dbPtr, cfHandles, errPtr) <-
-      liftIO $
-        withArray
-          emptyCfHandles
-          ( \emptyCfHandlesPtr -> do
-              (dbPtr, errPtr) <-
-                C.openColumnFamilies
-                  dbOptsPtr
-                  pathPtr
-                  (intToCInt num)
-                  cfCNames
-                  cfOptsPtr
-                  emptyCfHandlesPtr
-              cfHandles <- peekArray num emptyCfHandlesPtr
-              return (dbPtr, cfHandles, errPtr)
-          )
-    if errPtr == nullPtr
-      then do
-        cfFPtrs <- liftIO $ mapM (newForeignPtr C.columnFamilyHandleDestroyFunPtr) cfHandles
-        return (DB dbPtr, map ColumnFamily cfFPtrs)
-      else do
-        errStr <- liftIO $ peekCString errPtr
-        liftIO $ ioError $ userError $ "openColumnFamilies error: " ++ errStr
+openColumnFamilies dbOpts path cfDescriptors = liftIO $
+  runResourceT $
+    do
+      (_, dbOptsPtr) <- allocate (mkDBOpts dbOpts) C.optionsDestroy
+      (_, pathPtr) <- allocate (newFilePath path) free
+      (_, cfCNames) <- allocate (mapM (newCString . name) cfDescriptors) (mapM_ free)
+      (_, cfOptsPtr) <- allocate (mapM (mkDBOpts . options) cfDescriptors) (mapM_ C.optionsDestroy)
+      let num = length cfDescriptors
+      let emptyCfHandles = replicate num nullPtr
+      (dbPtr, cfHandles, errPtr) <-
+        liftIO $
+          withArray
+            emptyCfHandles
+            ( \emptyCfHandlesPtr -> do
+                (dbPtr, errPtr) <-
+                  C.openColumnFamilies
+                    dbOptsPtr
+                    pathPtr
+                    (intToCInt num)
+                    cfCNames
+                    cfOptsPtr
+                    emptyCfHandlesPtr
+                cfHandles <- peekArray num emptyCfHandlesPtr
+                return (dbPtr, cfHandles, errPtr)
+            )
+      if errPtr == nullPtr
+        then do
+          cfFPtrs <- liftIO $ mapM (newForeignPtr C.columnFamilyHandleDestroyFunPtr) cfHandles
+          return (DB dbPtr, map ColumnFamily cfFPtrs)
+        else do
+          errStr <- liftIO $ peekCString errPtr
+          liftIO $ ioError $ userError $ "openColumnFamilies error: " ++ errStr
 
 destroyColumnFamily :: MonadIO m => ColumnFamily -> m ()
 destroyColumnFamily (ColumnFamily cfPtr) = liftIO $ finalizeForeignPtr cfPtr
@@ -279,3 +282,14 @@ rangeCF db readOpts cf firstKey lastKey =
           case errStr of
             Nothing -> return Nothing
             Just str -> liftIO $ ioError $ userError $ "rangeCF error: " ++ str
+
+write :: MonadIO m => DB -> WriteOptions -> WriteBatch -> m ()
+write (DB dbPtr) writeOpts (WriteBatch batchPtr) = liftIO $ withWriteOpts writeOpts write'
+  where
+    write' opts = do
+      errPtr <- C.write dbPtr opts batchPtr
+      if errPtr == nullPtr
+        then return ()
+        else do
+          errStr <- liftIO $ peekCString errPtr
+          ioError $ userError $ "write error: " ++ errStr

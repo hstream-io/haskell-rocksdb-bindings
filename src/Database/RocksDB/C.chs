@@ -7,6 +7,7 @@ module Database.RocksDB.C (
     IteratorFPtr,
     WriteOptionsPtr,
     ReadOptionsPtr,
+    WriteBatchFPtr,
     open,
     openColumnFamilies,
     listColumnFamilies,
@@ -37,7 +38,12 @@ module Database.RocksDB.C (
     iterGetError,
     put,
     get,
-    createIterator
+    createIterator,
+    write,
+    writebatchCreate,
+    writebatchClear,
+    writebatchCount,
+    writebatchPutCf
 ) where
 
 import Foreign.C.String
@@ -79,6 +85,8 @@ allocaCSize f = alloca (\ptr -> poke ptr 0 >> f ptr)
 
 {#pointer *iterator_t as IteratorFPtr foreign finalizer iter_destroy as iterDestroyFunPtr#}
 
+{#pointer *writebatch_t as WriteBatchFPtr foreign finalizer writebatch_destroy as writeBatchDestroyFunPtr#}
+
 -- functions
 
 -- options
@@ -114,6 +122,8 @@ allocaCSize f = alloca (\ptr -> poke ptr 0 >> f ptr)
 {#fun get as ^ { `DBFPtr', `ReadOptionsPtr', `CString', `CSize', allocaCSize- `CSize' peek*, allocaNullPtr- `CString' peek*} -> `CString' #}
 
 {#fun create_iterator as ^ {`DBFPtr', `ReadOptionsPtr'} -> `IteratorFPtr' #}
+
+{#fun write as ^ { `DBFPtr', `WriteOptionsPtr', `WriteBatchFPtr', allocaNullPtr- `CString' peek*} -> `()' #}
 
 -- column family
 
@@ -156,5 +166,15 @@ allocaNullPtr- `CString' peek*} -> `DBFPtr' #}
 {#fun iter_value as ^ {`IteratorFPtr', allocaCSize- `CSize' peek*} -> `CString' #}
 
 {#fun iter_get_error as ^ {`IteratorFPtr', allocaNullPtr- `CString' peek*} -> `()' #}
+
+-- Write batch
+
+{#fun writebatch_create as ^ { } -> `WriteBatchFPtr' #}
+
+{#fun writebatch_clear as ^ {`WriteBatchFPtr'} -> `()' #}
+
+{#fun writebatch_count as ^ {`WriteBatchFPtr'} -> `CInt' #}
+
+{#fun writebatch_put_cf as ^ { `WriteBatchFPtr',  `CFFPtr', `CString', `CSize', `CString', `CSize'} -> `()' #}
 
 

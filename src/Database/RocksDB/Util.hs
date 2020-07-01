@@ -8,6 +8,9 @@ import Foreign.C.Types (CInt, CSize)
 intToCInt :: Int -> CInt
 intToCInt = fromIntegral
 
+cIntToInt :: CInt -> Int
+cIntToInt = fromIntegral
+
 cSizeToInt :: CSize -> Int
 cSizeToInt = fromIntegral
 
