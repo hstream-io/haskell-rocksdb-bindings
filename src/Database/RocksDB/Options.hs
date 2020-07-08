@@ -5,32 +5,43 @@ module Database.RocksDB.Options where
 import Control.Exception (bracket)
 import Data.Default
 import qualified Database.RocksDB.C as C
+import Database.RocksDB.Util
 
-data DBOptions
-  = DBOptions
-      { createIfMissing :: Bool,
-        createMissingColumnFamilies :: Bool
-      }
-
-newtype WriteOptions = WriteOptions {setSync :: Bool}
-
-newtype ReadOptions = ReadOptions {setVerifyChecksums :: Bool}
+data DBOptions = DBOptions
+  { createIfMissing :: Bool,
+    createMissingColumnFamilies :: Bool,
+    writeBufferSize :: Int,
+    disableAutoCompactions :: Bool
+  }
 
 defaultDBOptions :: DBOptions
 defaultDBOptions =
   DBOptions
     { createIfMissing = False,
-      createMissingColumnFamilies = False
+      createMissingColumnFamilies = False,
+      writeBufferSize = 67108864,
+      disableAutoCompactions = False
     }
 
 instance Default DBOptions where
   def = defaultDBOptions
 
+data WriteOptions = WriteOptions
+  { setSync :: Bool,
+    disableWAL :: Bool
+  }
+
 defaultWriteOptions :: WriteOptions
-defaultWriteOptions = WriteOptions {setSync = False}
+defaultWriteOptions =
+  WriteOptions
+    { setSync = False,
+      disableWAL = False
+    }
 
 instance Default WriteOptions where
   def = defaultWriteOptions
+
+newtype ReadOptions = ReadOptions {setVerifyChecksums :: Bool}
 
 defaultReadOptions :: ReadOptions
 defaultReadOptions =
@@ -46,6 +57,8 @@ mkDBOpts DBOptions {..} = do
   opts <- C.optionsCreate
   C.optionsSetCreateIfMissing opts createIfMissing
   C.optionsSetCreateMissingColumnFamilies opts createMissingColumnFamilies
+  C.optionsSetWriteBufferSize opts (intToCSize writeBufferSize)
+  C.optionsSetDisableAutoCompactions opts disableAutoCompactions
   return opts
 
 withDBOpts :: DBOptions -> (C.DBOptionsPtr -> IO a) -> IO a
@@ -55,6 +68,7 @@ mkWriteOpts :: WriteOptions -> IO C.WriteOptionsPtr
 mkWriteOpts WriteOptions {..} = do
   optsPtr <- C.writeoptionsCreate
   C.writeoptionsSetSync optsPtr setSync
+  C.writeoptionsDisableWAL optsPtr disableWAL
   return optsPtr
 
 withWriteOpts :: WriteOptions -> (C.WriteOptionsPtr -> IO a) -> IO a

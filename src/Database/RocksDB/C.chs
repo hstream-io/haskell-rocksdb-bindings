@@ -18,9 +18,12 @@ module Database.RocksDB.C (
     optionsDestroy,
     optionsSetCreateIfMissing,
     optionsSetCreateMissingColumnFamilies,
+    optionsSetWriteBufferSize,
+    optionsSetDisableAutoCompactions,
     writeoptionsCreate,
     writeoptionsDestroy,
     writeoptionsSetSync,
+    writeoptionsDisableWAL,
     readoptionsCreate,
     readoptionsDestroy,
     putCf,
@@ -99,6 +102,10 @@ allocaCSize f = alloca (\ptr -> poke ptr 0 >> f ptr)
 
 {#fun options_set_create_missing_column_families as ^ { `DBOptionsPtr', `Bool' } -> `()' #}
 
+{#fun options_set_write_buffer_size as ^ { `DBOptionsPtr', `CSize' } -> `()' #}
+
+{#fun options_set_disable_auto_compactions as ^ { `DBOptionsPtr', `Bool' } -> `()' #}
+
 -- writeOptions
 
 {#fun writeoptions_create as ^ { } -> `WriteOptionsPtr' #}
@@ -106,6 +113,8 @@ allocaCSize f = alloca (\ptr -> poke ptr 0 >> f ptr)
 {#fun writeoptions_destroy as ^ { `WriteOptionsPtr' } -> `()' #}
 
 {#fun writeoptions_set_sync as ^ { `WriteOptionsPtr', `Bool' } -> `()' #}
+
+{#fun writeoptions_disable_WAL as ^ { `WriteOptionsPtr', `Bool' } -> `()' #}
 
 -- readOptions
 
