@@ -20,6 +20,9 @@ module Database.RocksDB.C (
     optionsSetCreateMissingColumnFamilies,
     optionsSetWriteBufferSize,
     optionsSetDisableAutoCompactions,
+    optionsSetLevel0FileNumCompactionTrigger,
+    optionsSetLevel0SlowdownWritesTrigger,
+    optionsSetLevel0StopWritesTrigger,
     writeoptionsCreate,
     writeoptionsDestroy,
     writeoptionsSetSync,
@@ -105,6 +108,12 @@ allocaCSize f = alloca (\ptr -> poke ptr 0 >> f ptr)
 {#fun options_set_write_buffer_size as ^ { `DBOptionsPtr', `CSize' } -> `()' #}
 
 {#fun options_set_disable_auto_compactions as ^ { `DBOptionsPtr', `Bool' } -> `()' #}
+
+{#fun options_set_level0_file_num_compaction_trigger as ^ { `DBOptionsPtr', `CInt' } -> `()' #}
+
+{#fun options_set_level0_slowdown_writes_trigger as ^ { `DBOptionsPtr', `CInt' } -> `()' #}
+
+{#fun options_set_level0_stop_writes_trigger as ^ { `DBOptionsPtr', `CInt' } -> `()' #}
 
 -- writeOptions
 

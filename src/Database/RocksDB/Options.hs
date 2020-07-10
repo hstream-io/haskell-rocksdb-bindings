@@ -11,7 +11,10 @@ data DBOptions = DBOptions
   { createIfMissing :: Bool,
     createMissingColumnFamilies :: Bool,
     writeBufferSize :: Int,
-    disableAutoCompactions :: Bool
+    disableAutoCompactions :: Bool,
+    level0FileNumCompactionTrigger :: Int,
+    level0SlowdownWritesTrigger :: Int,
+    level0StopWritesTrigger :: Int
   }
 
 defaultDBOptions :: DBOptions
@@ -20,7 +23,10 @@ defaultDBOptions =
     { createIfMissing = False,
       createMissingColumnFamilies = False,
       writeBufferSize = 67108864,
-      disableAutoCompactions = False
+      disableAutoCompactions = False,
+      level0FileNumCompactionTrigger = 4,
+      level0SlowdownWritesTrigger = 20,
+      level0StopWritesTrigger = 36
     }
 
 instance Default DBOptions where
@@ -59,6 +65,9 @@ mkDBOpts DBOptions {..} = do
   C.optionsSetCreateMissingColumnFamilies opts createMissingColumnFamilies
   C.optionsSetWriteBufferSize opts (intToCSize writeBufferSize)
   C.optionsSetDisableAutoCompactions opts disableAutoCompactions
+  C.optionsSetLevel0FileNumCompactionTrigger opts (intToCInt level0FileNumCompactionTrigger)
+  C.optionsSetLevel0SlowdownWritesTrigger opts (intToCInt level0SlowdownWritesTrigger)
+  C.optionsSetLevel0StopWritesTrigger opts (intToCInt level0StopWritesTrigger)
   return opts
 
 withDBOpts :: DBOptions -> (C.DBOptionsPtr -> IO a) -> IO a
