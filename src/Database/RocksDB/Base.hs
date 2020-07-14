@@ -16,6 +16,7 @@ import Data.Default
 import Data.Function ((&))
 import Data.Maybe (isJust)
 import qualified Database.RocksDB.C as C
+import Database.RocksDB.Exception
 import Database.RocksDB.Iterator
 import Database.RocksDB.Options
 import Database.RocksDB.Types
@@ -42,9 +43,7 @@ open opts path = liftIO $ withDBOpts opts mkDB
               (dbPtr, errPtr) <- C.open optsPtr pathPtr
               if errPtr == nullPtr
                 then return $ DB dbPtr
-                else do
-                  errStr <- peekCString errPtr
-                  ioError $ userError $ "open error: " ++ errStr
+                else throwDbException "open error: " errPtr
         )
 
 close :: MonadIO m => DB -> m ()
@@ -56,14 +55,10 @@ put (DB dbPtr) writeOpts key value = liftIO $ withWriteOpts writeOpts put'
     put' opts = do
       (cKey, cKeyLen) <- unsafeUseAsCStringLen key return
       (cValue, cValueLen) <- unsafeUseAsCStringLen value return
-      -- (cKey, cKeyLen) <- useAsCStringLen key return
-      -- (cValue, cValueLen) <- useAsCStringLen value return
       errPtr <- C.put dbPtr opts cKey (intToCSize cKeyLen) cValue (intToCSize cValueLen)
       if errPtr == nullPtr
         then return ()
-        else do
-          errStr <- liftIO $ peekCString errPtr
-          ioError $ userError $ "put error: " ++ errStr
+        else throwDbException "put error: " errPtr
 
 get :: MonadIO m => DB -> ReadOptions -> ByteString -> m (Maybe ByteString)
 get (DB dbPtr) readOpts key = liftIO $ withReadOpts readOpts get'
@@ -78,9 +73,7 @@ get (DB dbPtr) readOpts key = liftIO $ withReadOpts readOpts get'
             else do
               value <- unsafePackCStringLen (valuePtr, cSizeToInt valueLen)
               return $ Just value
-        else do
-          errStr <- liftIO $ peekCString errPtr
-          ioError $ userError $ "get error: " ++ errStr
+        else throwDbException "get error: " errPtr
 
 range :: DB -> ReadOptions -> Maybe ByteString -> Maybe ByteString -> Serial (ByteString, ByteString)
 range db readOpts firstKey lastKey =
@@ -123,7 +116,7 @@ range db readOpts firstKey lastKey =
           errStr <- getError iter
           case errStr of
             Nothing -> return Nothing
-            Just str -> liftIO $ ioError $ userError $ "range error: " ++ str
+            Just str -> liftIO $ throwIO $ RocksDbIOException $ "range error: " ++ str
 
 createColumnFamily :: MonadIO m => DB -> DBOptions -> String -> m ColumnFamily
 createColumnFamily (DB dbPtr) opts name = liftIO $ withDBOpts opts mkCF
@@ -139,9 +132,7 @@ createColumnFamily (DB dbPtr) opts name = liftIO $ withDBOpts opts mkCF
                 cname
             if errPtr == nullPtr
               then return $ ColumnFamily cfPtr
-              else do
-                errStr <- peekCString errPtr
-                ioError $ userError $ "createColumnFamily error: " ++ errStr
+              else throwDbException "createColumnFamily error: " errPtr
         )
 
 dropColumnFamily :: MonadIO m => DB -> ColumnFamily -> m ()
@@ -149,9 +140,7 @@ dropColumnFamily (DB dbPtr) (ColumnFamily cfPtr) = liftIO $ do
   errPtr <- C.dropColumnFamily dbPtr cfPtr
   if errPtr == nullPtr
     then return ()
-    else do
-      errStr <- peekCString errPtr
-      ioError $ userError $ "dropColumnFamily error: " ++ errStr
+    else throwDbException "dropColumnFamily error: " errPtr
 
 listColumnFamilies :: MonadIO m => DBOptions -> FilePath -> m [String]
 listColumnFamilies dbOpts dbPath = liftIO $
@@ -164,9 +153,7 @@ listColumnFamilies dbOpts dbPath = liftIO $
         then do
           cfCNames <- liftIO $ peekArray (cSizeToInt num) cfCNamesPtr
           liftIO $ mapM peekCString cfCNames
-        else do
-          errStr <- liftIO $ peekCString errPtr
-          liftIO $ ioError $ userError $ "listColumnFamilies error: " ++ errStr
+        else liftIO $ throwDbException "listColumnFamilies error: " errPtr
 
 openColumnFamilies ::
   MonadIO m =>
@@ -203,9 +190,7 @@ openColumnFamilies dbOpts path cfDescriptors = liftIO $
         then do
           cfFPtrs <- liftIO $ mapM (newForeignPtr C.columnFamilyHandleDestroyFunPtr) cfHandles
           return (DB dbPtr, map ColumnFamily cfFPtrs)
-        else do
-          errStr <- liftIO $ peekCString errPtr
-          liftIO $ ioError $ userError $ "openColumnFamilies error: " ++ errStr
+        else liftIO $ throwDbException "openColumnFamilies error: " errPtr
 
 destroyColumnFamily :: MonadIO m => ColumnFamily -> m ()
 destroyColumnFamily (ColumnFamily cfPtr) = liftIO $ finalizeForeignPtr cfPtr
@@ -219,9 +204,7 @@ putCF (DB dbPtr) writeOpts (ColumnFamily cfPtr) key value = liftIO $ withWriteOp
       errPtr <- C.putCf dbPtr opts cfPtr cKey (intToCSize cKeyLen) cValue (intToCSize cValueLen)
       if errPtr == nullPtr
         then return ()
-        else do
-          errStr <- liftIO $ peekCString errPtr
-          liftIO $ ioError $ userError $ "putCF error: " ++ errStr
+        else liftIO $ throwDbException "putCF error: " errPtr
 
 getCF :: MonadIO m => DB -> ReadOptions -> ColumnFamily -> ByteString -> m (Maybe ByteString)
 getCF (DB dbPtr) readOpts (ColumnFamily cfPtr) key = liftIO $ withReadOpts readOpts getCF'
@@ -236,9 +219,7 @@ getCF (DB dbPtr) readOpts (ColumnFamily cfPtr) key = liftIO $ withReadOpts readO
             else do
               value <- unsafePackCStringLen (valuePtr, cSizeToInt valueLen)
               return $ Just value
-        else do
-          errStr <- liftIO $ peekCString errPtr
-          liftIO $ ioError $ userError $ "getCF error: " ++ errStr
+        else liftIO $ throwDbException "getCF error: " errPtr
 
 rangeCF :: DB -> ReadOptions -> ColumnFamily -> Maybe ByteString -> Maybe ByteString -> Serial (ByteString, ByteString)
 rangeCF db readOpts cf firstKey lastKey =
@@ -281,7 +262,7 @@ rangeCF db readOpts cf firstKey lastKey =
           errStr <- getError iter
           case errStr of
             Nothing -> return Nothing
-            Just str -> liftIO $ ioError $ userError $ "rangeCF error: " ++ str
+            Just str -> liftIO $ throwIO $ RocksDbIOException $ "rangeCF error: " ++ str
 
 write :: MonadIO m => DB -> WriteOptions -> WriteBatch -> m ()
 write (DB dbPtr) writeOpts (WriteBatch batchPtr) = liftIO $ withWriteOpts writeOpts write'
@@ -290,6 +271,4 @@ write (DB dbPtr) writeOpts (WriteBatch batchPtr) = liftIO $ withWriteOpts writeO
       errPtr <- C.write dbPtr opts batchPtr
       if errPtr == nullPtr
         then return ()
-        else do
-          errStr <- liftIO $ peekCString errPtr
-          ioError $ userError $ "write error: " ++ errStr
+        else liftIO $ throwDbException "write error: " errPtr
