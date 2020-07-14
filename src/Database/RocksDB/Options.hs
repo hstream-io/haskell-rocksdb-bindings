@@ -14,7 +14,9 @@ data DBOptions = DBOptions
     disableAutoCompactions :: Bool,
     level0FileNumCompactionTrigger :: Int,
     level0SlowdownWritesTrigger :: Int,
-    level0StopWritesTrigger :: Int
+    level0StopWritesTrigger :: Int,
+    enableStatistics :: Bool,
+    statsDumpPeriodSec :: Int
   }
 
 defaultDBOptions :: DBOptions
@@ -26,7 +28,9 @@ defaultDBOptions =
       disableAutoCompactions = False,
       level0FileNumCompactionTrigger = 4,
       level0SlowdownWritesTrigger = 20,
-      level0StopWritesTrigger = 36
+      level0StopWritesTrigger = 36,
+      enableStatistics = False,
+      statsDumpPeriodSec = 600
     }
 
 instance Default DBOptions where
@@ -68,6 +72,8 @@ mkDBOpts DBOptions {..} = do
   C.optionsSetLevel0FileNumCompactionTrigger opts (intToCInt level0FileNumCompactionTrigger)
   C.optionsSetLevel0SlowdownWritesTrigger opts (intToCInt level0SlowdownWritesTrigger)
   C.optionsSetLevel0StopWritesTrigger opts (intToCInt level0StopWritesTrigger)
+  C.optionsEnableStatistics opts
+  C.optionsSetStatsDumpPeriodSec opts (intToCUInt statsDumpPeriodSec)
   return opts
 
 withDBOpts :: DBOptions -> (C.DBOptionsPtr -> IO a) -> IO a
