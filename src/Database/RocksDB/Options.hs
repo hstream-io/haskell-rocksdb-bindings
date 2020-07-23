@@ -4,19 +4,21 @@ module Database.RocksDB.Options where
 
 import Control.Exception (bracket)
 import Data.Default
+import Data.Word (Word64)
 import qualified Database.RocksDB.C as C
 import Database.RocksDB.Util
 
 data DBOptions = DBOptions
   { createIfMissing :: Bool,
     createMissingColumnFamilies :: Bool,
-    writeBufferSize :: Int,
+    writeBufferSize :: Word64,
     disableAutoCompactions :: Bool,
     level0FileNumCompactionTrigger :: Int,
     level0SlowdownWritesTrigger :: Int,
     level0StopWritesTrigger :: Int,
     enableStatistics :: Bool,
-    statsDumpPeriodSec :: Int
+    statsDumpPeriodSec :: Int,
+    dbWriteBufferSize :: Word64
   }
 
 defaultDBOptions :: DBOptions
@@ -30,7 +32,8 @@ defaultDBOptions =
       level0SlowdownWritesTrigger = 20,
       level0StopWritesTrigger = 36,
       enableStatistics = False,
-      statsDumpPeriodSec = 600
+      statsDumpPeriodSec = 600,
+      dbWriteBufferSize = 0
     }
 
 instance Default DBOptions where
@@ -67,13 +70,14 @@ mkDBOpts DBOptions {..} = do
   opts <- C.optionsCreate
   C.optionsSetCreateIfMissing opts createIfMissing
   C.optionsSetCreateMissingColumnFamilies opts createMissingColumnFamilies
-  C.optionsSetWriteBufferSize opts (intToCSize writeBufferSize)
+  C.optionsSetWriteBufferSize opts (word64ToCSize writeBufferSize)
   C.optionsSetDisableAutoCompactions opts disableAutoCompactions
   C.optionsSetLevel0FileNumCompactionTrigger opts (intToCInt level0FileNumCompactionTrigger)
   C.optionsSetLevel0SlowdownWritesTrigger opts (intToCInt level0SlowdownWritesTrigger)
   C.optionsSetLevel0StopWritesTrigger opts (intToCInt level0StopWritesTrigger)
   C.optionsEnableStatistics opts
   C.optionsSetStatsDumpPeriodSec opts (intToCUInt statsDumpPeriodSec)
+  C.optionsSetDbWriteBufferSize opts (word64ToCSize dbWriteBufferSize)
   return opts
 
 withDBOpts :: DBOptions -> (C.DBOptionsPtr -> IO a) -> IO a
