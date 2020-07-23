@@ -25,6 +25,7 @@ module Database.RocksDB.C (
     optionsSetLevel0StopWritesTrigger,
     optionsEnableStatistics,
     optionsSetStatsDumpPeriodSec,
+    optionsSetDbWriteBufferSize,
     writeoptionsCreate,
     writeoptionsDestroy,
     writeoptionsSetSync,
@@ -120,6 +121,8 @@ allocaCSize f = alloca (\ptr -> poke ptr 0 >> f ptr)
 {#fun options_enable_statistics as ^ { `DBOptionsPtr' } -> `()' #}
 
 {#fun options_set_stats_dump_period_sec as ^ { `DBOptionsPtr', `CUInt' } -> `()' #}
+
+{#fun options_set_db_write_buffer_size as ^ { `DBOptionsPtr', `CSize' } -> `()' #}
 
 -- writeOptions
 
