@@ -27,7 +27,7 @@ module Database.RocksDB.C (
     optionsSetStatsDumpPeriodSec,
     optionsSetDbWriteBufferSize,
     optionsSetMaxWriteBufferNumber,
-    optionsSetMaxBackgroundJobs,
+    --optionsSetMaxBackgroundJobs,
     optionsSetMaxBackgroundCompactions,
     optionsSetMaxBackgroundFlushes,
     optionsSetSoftPendingCompactionBytesLimit,
@@ -132,7 +132,7 @@ allocaCSize f = alloca (\ptr -> poke ptr 0 >> f ptr)
 
 {#fun options_set_max_write_buffer_number as ^ { `DBOptionsPtr', `CInt' } -> `()' #}
 
-{#fun options_set_max_background_jobs as ^ { `DBOptionsPtr', `CInt' } -> `()' #}
+-- {#fun options_set_max_background_jobs as ^ { `DBOptionsPtr', `CInt' } -> `()' #}
 
 {#fun options_set_max_background_compactions as ^ { `DBOptionsPtr', `CInt' } -> `()' #}
 

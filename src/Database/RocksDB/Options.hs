@@ -20,7 +20,7 @@ data DBOptions = DBOptions
     statsDumpPeriodSec :: Word32,
     dbWriteBufferSize :: Word64,
     maxWriteBufferNumber :: Int,
-    maxBackgroundJobs :: Int,
+    -- maxBackgroundJobs :: Int,
     maxBackgroundCompactions :: Int,
     maxBackgroundFlushes :: Int,
     softPendingCompactionBytesLimit :: Word64,
@@ -41,7 +41,7 @@ defaultDBOptions =
       statsDumpPeriodSec = 600,
       dbWriteBufferSize = 0,
       maxWriteBufferNumber = 2,
-      maxBackgroundJobs = 2,
+      -- maxBackgroundJobs = 2,
       maxBackgroundCompactions = -1,
       maxBackgroundFlushes = -1,
       softPendingCompactionBytesLimit = 68719476736,
@@ -91,7 +91,7 @@ mkDBOpts DBOptions {..} = do
   C.optionsSetStatsDumpPeriodSec opts (word32ToCUInt statsDumpPeriodSec)
   C.optionsSetDbWriteBufferSize opts (word64ToCSize dbWriteBufferSize)
   C.optionsSetMaxWriteBufferNumber opts (intToCInt maxWriteBufferNumber)
-  C.optionsSetMaxBackgroundJobs opts (intToCInt maxBackgroundJobs)
+  -- C.optionsSetMaxBackgroundJobs opts (intToCInt maxBackgroundJobs)
   C.optionsSetMaxBackgroundCompactions opts (intToCInt maxBackgroundCompactions)
   C.optionsSetMaxBackgroundFlushes opts (intToCInt maxBackgroundFlushes)
   C.optionsSetSoftPendingCompactionBytesLimit opts (word64ToCSize softPendingCompactionBytesLimit)
