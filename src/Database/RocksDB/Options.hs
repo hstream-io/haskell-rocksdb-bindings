@@ -4,7 +4,7 @@ module Database.RocksDB.Options where
 
 import Control.Exception (bracket)
 import Data.Default
-import Data.Word (Word64)
+import Data.Word (Word32, Word64)
 import qualified Database.RocksDB.C as C
 import Database.RocksDB.Util
 
@@ -17,8 +17,14 @@ data DBOptions = DBOptions
     level0SlowdownWritesTrigger :: Int,
     level0StopWritesTrigger :: Int,
     enableStatistics :: Bool,
-    statsDumpPeriodSec :: Int,
-    dbWriteBufferSize :: Word64
+    statsDumpPeriodSec :: Word32,
+    dbWriteBufferSize :: Word64,
+    maxWriteBufferNumber :: Int,
+    maxBackgroundJobs :: Int,
+    maxBackgroundCompactions :: Int,
+    maxBackgroundFlushes :: Int,
+    softPendingCompactionBytesLimit :: Word64,
+    hardPendingCompactionBytesLimit :: Word64
   }
 
 defaultDBOptions :: DBOptions
@@ -33,7 +39,13 @@ defaultDBOptions =
       level0StopWritesTrigger = 36,
       enableStatistics = False,
       statsDumpPeriodSec = 600,
-      dbWriteBufferSize = 0
+      dbWriteBufferSize = 0,
+      maxWriteBufferNumber = 2,
+      maxBackgroundJobs = 2,
+      maxBackgroundCompactions = -1,
+      maxBackgroundFlushes = -1,
+      softPendingCompactionBytesLimit = 68719476736,
+      hardPendingCompactionBytesLimit = 274877906944
     }
 
 instance Default DBOptions where
@@ -76,8 +88,14 @@ mkDBOpts DBOptions {..} = do
   C.optionsSetLevel0SlowdownWritesTrigger opts (intToCInt level0SlowdownWritesTrigger)
   C.optionsSetLevel0StopWritesTrigger opts (intToCInt level0StopWritesTrigger)
   C.optionsEnableStatistics opts
-  C.optionsSetStatsDumpPeriodSec opts (intToCUInt statsDumpPeriodSec)
+  C.optionsSetStatsDumpPeriodSec opts (word32ToCUInt statsDumpPeriodSec)
   C.optionsSetDbWriteBufferSize opts (word64ToCSize dbWriteBufferSize)
+  C.optionsSetMaxWriteBufferNumber opts (intToCInt maxWriteBufferNumber)
+  C.optionsSetMaxBackgroundJobs opts (intToCInt maxBackgroundJobs)
+  C.optionsSetMaxBackgroundCompactions opts (intToCInt maxBackgroundCompactions)
+  C.optionsSetMaxBackgroundFlushes opts (intToCInt maxBackgroundFlushes)
+  C.optionsSetSoftPendingCompactionBytesLimit opts (word64ToCSize softPendingCompactionBytesLimit)
+  C.optionsSetHardPendingCompactionBytesLimit opts (word64ToCSize hardPendingCompactionBytesLimit)
   return opts
 
 withDBOpts :: DBOptions -> (C.DBOptionsPtr -> IO a) -> IO a
