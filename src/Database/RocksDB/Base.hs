@@ -192,6 +192,45 @@ openColumnFamilies dbOpts path cfDescriptors = liftIO $
           return (DB dbPtr, map ColumnFamily cfFPtrs)
         else liftIO $ throwDbException "openColumnFamilies error: " errPtr
 
+openForReadOnlyColumnFamilies ::
+  MonadIO m =>
+  DBOptions ->
+  FilePath ->
+  [ColumnFamilyDescriptor] ->
+  Bool ->
+  m (DB, [ColumnFamily])
+openForReadOnlyColumnFamilies dbOpts path cfDescriptors errorIfLogFileExist = liftIO $
+  runResourceT $
+    do
+      (_, dbOptsPtr) <- allocate (mkDBOpts dbOpts) C.optionsDestroy
+      (_, pathPtr) <- allocate (newFilePath path) free
+      (_, cfCNames) <- allocate (mapM (newCString . name) cfDescriptors) (mapM_ free)
+      (_, cfOptsPtr) <- allocate (mapM (mkDBOpts . options) cfDescriptors) (mapM_ C.optionsDestroy)
+      let num = length cfDescriptors
+      let emptyCfHandles = replicate num nullPtr
+      (dbPtr, cfHandles, errPtr) <-
+        liftIO $
+          withArray
+            emptyCfHandles
+            ( \emptyCfHandlesPtr -> do
+                (dbPtr, errPtr) <-
+                  C.openForReadOnlyColumnFamilies
+                    dbOptsPtr
+                    pathPtr
+                    (intToCInt num)
+                    cfCNames
+                    cfOptsPtr
+                    emptyCfHandlesPtr
+                    errorIfLogFileExist
+                cfHandles <- peekArray num emptyCfHandlesPtr
+                return (dbPtr, cfHandles, errPtr)
+            )
+      if errPtr == nullPtr
+        then do
+          cfFPtrs <- liftIO $ mapM (newForeignPtr C.columnFamilyHandleDestroyFunPtr) cfHandles
+          return (DB dbPtr, map ColumnFamily cfFPtrs)
+        else liftIO $ throwDbException "openForReadOnlyColumnFamilies error: " errPtr
+
 destroyColumnFamily :: MonadIO m => ColumnFamily -> m ()
 destroyColumnFamily (ColumnFamily cfPtr) = liftIO $ finalizeForeignPtr cfPtr
 

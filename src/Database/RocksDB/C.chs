@@ -10,6 +10,7 @@ module Database.RocksDB.C (
     WriteBatchFPtr,
     open,
     openColumnFamilies,
+    openForReadOnlyColumnFamilies,
     listColumnFamilies,
     createColumnFamily,
     dropColumnFamily,
@@ -178,11 +179,26 @@ allocaCSize f = alloca (\ptr -> poke ptr 0 >> f ptr)
 
 {#fun list_column_families as ^ { `DBOptionsPtr', `CString', allocaCSize- `CSize' peek*, allocaNullPtr- `CString' peek*} -> `Ptr CString' id #}
 
-{#fun open_column_families as ^ { `DBOptionsPtr', `CString', `CInt',
-withArray* `[CString]' ,
-withArray* `[DBOptionsPtr]' ,
-id `Ptr CFPtr' ,
-allocaNullPtr- `CString' peek*} -> `DBFPtr' #}
+{#fun open_column_families as ^ {
+    `DBOptionsPtr',
+    `CString',
+    `CInt',
+    withArray* `[CString]' ,
+    withArray* `[DBOptionsPtr]' ,
+    id `Ptr CFPtr' ,
+    allocaNullPtr- `CString' peek*
+    } -> `DBFPtr' #}
+
+{#fun open_for_read_only_column_families as ^ {
+    `DBOptionsPtr',
+    `CString',
+    `CInt',
+    withArray* `[CString]' ,
+    withArray* `[DBOptionsPtr]' ,
+    id `Ptr CFPtr' ,
+    `Bool',
+    allocaNullPtr- `CString' peek*
+    } -> `DBFPtr' #}
 
 {#fun put_cf as ^ { `DBFPtr', `WriteOptionsPtr', `CFFPtr', `CString', `CSize', `CString', `CSize', allocaNullPtr- `CString' peek*} -> `()' #}
 
