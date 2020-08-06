@@ -176,6 +176,43 @@ main = hspec $ do
             return "success"
         )
         `shouldReturn` "success"
+    it "open column families for read only" $
+      runResourceT
+        ( do
+            (dirKey, path) <- createTempDirectory Nothing "rocksdb"
+            let opts = defaultDBOptions {createIfMissing = True}
+            (dbKey, db) <- allocate (open opts path) close
+
+            (cf1Key, _) <-
+              allocate
+                (createColumnFamily db opts "cf1")
+                destroyColumnFamily
+            release cf1Key
+
+            (cf2Key, _) <-
+              allocate
+                (createColumnFamily db opts "cf2")
+                destroyColumnFamily
+            release cf2Key
+
+            (readOnlyKey, _) <-
+              allocate
+                ( openForReadOnlyColumnFamilies
+                    def
+                    path
+                    [ ColumnFamilyDescriptor {name = "default", options = def},
+                      ColumnFamilyDescriptor {name = "cf1", options = def}
+                    ]
+                    False
+                )
+                (\(newDb, cfs) -> mapM_ destroyColumnFamily cfs >> close newDb)
+
+            release dbKey
+            release readOnlyKey
+            release dirKey
+            return "success"
+        )
+        `shouldReturn` "success"
     it "put kv to column family" $
       runResourceT
         ( do
