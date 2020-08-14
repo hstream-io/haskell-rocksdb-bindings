@@ -107,79 +107,79 @@ allocaCSize f = alloca (\ptr -> poke ptr 0 >> f ptr)
 
 -- options
 
-{#fun options_create as ^ { } -> `DBOptionsPtr' #}
+{#fun unsafe options_create as ^ { } -> `DBOptionsPtr' #}
 
-{#fun options_destroy as ^ { `DBOptionsPtr' } -> `()' #}
+{#fun unsafe options_destroy as ^ { `DBOptionsPtr' } -> `()' #}
 
-{#fun options_set_create_if_missing as ^ { `DBOptionsPtr', `Bool' } -> `()' #}
+{#fun unsafe options_set_create_if_missing as ^ { `DBOptionsPtr', `Bool' } -> `()' #}
 
-{#fun options_set_create_missing_column_families as ^ { `DBOptionsPtr', `Bool' } -> `()' #}
+{#fun unsafe options_set_create_missing_column_families as ^ { `DBOptionsPtr', `Bool' } -> `()' #}
 
-{#fun options_set_write_buffer_size as ^ { `DBOptionsPtr', `CSize' } -> `()' #}
+{#fun unsafe options_set_write_buffer_size as ^ { `DBOptionsPtr', `CSize' } -> `()' #}
 
-{#fun options_set_disable_auto_compactions as ^ { `DBOptionsPtr', `Bool' } -> `()' #}
+{#fun unsafe options_set_disable_auto_compactions as ^ { `DBOptionsPtr', `Bool' } -> `()' #}
 
-{#fun options_set_level0_file_num_compaction_trigger as ^ { `DBOptionsPtr', `CInt' } -> `()' #}
+{#fun unsafe options_set_level0_file_num_compaction_trigger as ^ { `DBOptionsPtr', `CInt' } -> `()' #}
 
-{#fun options_set_level0_slowdown_writes_trigger as ^ { `DBOptionsPtr', `CInt' } -> `()' #}
+{#fun unsafe options_set_level0_slowdown_writes_trigger as ^ { `DBOptionsPtr', `CInt' } -> `()' #}
 
-{#fun options_set_level0_stop_writes_trigger as ^ { `DBOptionsPtr', `CInt' } -> `()' #}
+{#fun unsafe options_set_level0_stop_writes_trigger as ^ { `DBOptionsPtr', `CInt' } -> `()' #}
 
-{#fun options_enable_statistics as ^ { `DBOptionsPtr' } -> `()' #}
+{#fun unsafe options_enable_statistics as ^ { `DBOptionsPtr' } -> `()' #}
 
-{#fun options_set_stats_dump_period_sec as ^ { `DBOptionsPtr', `CUInt' } -> `()' #}
+{#fun unsafe options_set_stats_dump_period_sec as ^ { `DBOptionsPtr', `CUInt' } -> `()' #}
 
-{#fun options_set_db_write_buffer_size as ^ { `DBOptionsPtr', `CSize' } -> `()' #}
+{#fun unsafe options_set_db_write_buffer_size as ^ { `DBOptionsPtr', `CSize' } -> `()' #}
 
-{#fun options_set_max_write_buffer_number as ^ { `DBOptionsPtr', `CInt' } -> `()' #}
+{#fun unsafe options_set_max_write_buffer_number as ^ { `DBOptionsPtr', `CInt' } -> `()' #}
 
 -- {#fun options_set_max_background_jobs as ^ { `DBOptionsPtr', `CInt' } -> `()' #}
 
-{#fun options_set_max_background_compactions as ^ { `DBOptionsPtr', `CInt' } -> `()' #}
+{#fun unsafe options_set_max_background_compactions as ^ { `DBOptionsPtr', `CInt' } -> `()' #}
 
-{#fun options_set_max_background_flushes as ^ { `DBOptionsPtr', `CInt' } -> `()' #}
+{#fun unsafe options_set_max_background_flushes as ^ { `DBOptionsPtr', `CInt' } -> `()' #}
 
-{#fun options_set_soft_pending_compaction_bytes_limit as ^ { `DBOptionsPtr', `CSize' } -> `()' #}
+{#fun unsafe options_set_soft_pending_compaction_bytes_limit as ^ { `DBOptionsPtr', `CSize' } -> `()' #}
 
-{#fun options_set_hard_pending_compaction_bytes_limit as ^ { `DBOptionsPtr', `CSize' } -> `()' #}
+{#fun unsafe options_set_hard_pending_compaction_bytes_limit as ^ { `DBOptionsPtr', `CSize' } -> `()' #}
 
 -- writeOptions
 
-{#fun writeoptions_create as ^ { } -> `WriteOptionsPtr' #}
+{#fun unsafe writeoptions_create as ^ { } -> `WriteOptionsPtr' #}
 
-{#fun writeoptions_destroy as ^ { `WriteOptionsPtr' } -> `()' #}
+{#fun unsafe writeoptions_destroy as ^ { `WriteOptionsPtr' } -> `()' #}
 
-{#fun writeoptions_set_sync as ^ { `WriteOptionsPtr', `Bool' } -> `()' #}
+{#fun unsafe writeoptions_set_sync as ^ { `WriteOptionsPtr', `Bool' } -> `()' #}
 
-{#fun writeoptions_disable_WAL as ^ { `WriteOptionsPtr', `Bool' } -> `()' #}
+{#fun unsafe writeoptions_disable_WAL as ^ { `WriteOptionsPtr', `Bool' } -> `()' #}
 
 -- readOptions
 
-{#fun readoptions_create as ^ { } -> `ReadOptionsPtr' #}
+{#fun unsafe readoptions_create as ^ { } -> `ReadOptionsPtr' #}
 
-{#fun readoptions_destroy as ^ { `ReadOptionsPtr' } -> `()' #}
+{#fun unsafe readoptions_destroy as ^ { `ReadOptionsPtr' } -> `()' #}
 
 -- db
 
-{#fun open as ^ { `DBOptionsPtr', `CString', allocaNullPtr- `CString' peek*} -> `DBFPtr' #}
+{#fun unsafe open as ^ { `DBOptionsPtr', `CString', allocaNullPtr- `CString' peek*} -> `DBFPtr' #}
 
-{#fun put as ^ { `DBFPtr', `WriteOptionsPtr', `CString', `CSize', `CString', `CSize', allocaNullPtr- `CString' peek*} -> `()' #}
+{#fun unsafe put as ^ { `DBFPtr', `WriteOptionsPtr', `CString', `CSize', `CString', `CSize', allocaNullPtr- `CString' peek*} -> `()' #}
 
-{#fun get as ^ { `DBFPtr', `ReadOptionsPtr', `CString', `CSize', allocaCSize- `CSize' peek*, allocaNullPtr- `CString' peek*} -> `CString' #}
+{#fun unsafe get as ^ { `DBFPtr', `ReadOptionsPtr', `CString', `CSize', allocaCSize- `CSize' peek*, allocaNullPtr- `CString' peek*} -> `CString' #}
 
-{#fun create_iterator as ^ {`DBFPtr', `ReadOptionsPtr'} -> `IteratorFPtr' #}
+{#fun unsafe create_iterator as ^ {`DBFPtr', `ReadOptionsPtr'} -> `IteratorFPtr' #}
 
-{#fun write as ^ { `DBFPtr', `WriteOptionsPtr', `WriteBatchFPtr', allocaNullPtr- `CString' peek*} -> `()' #}
+{#fun unsafe write as ^ { `DBFPtr', `WriteOptionsPtr', `WriteBatchFPtr', allocaNullPtr- `CString' peek*} -> `()' #}
 
 -- column family
 
-{#fun create_column_family as ^ { `DBFPtr', `DBOptionsPtr', `CString', allocaNullPtr- `CString' peek*} -> `CFFPtr' #}
+{#fun unsafe create_column_family as ^ { `DBFPtr', `DBOptionsPtr', `CString', allocaNullPtr- `CString' peek*} -> `CFFPtr' #}
 
-{#fun drop_column_family as ^ { `DBFPtr', `CFFPtr', allocaNullPtr- `CString' peek*} -> `()' #}
+{#fun unsafe drop_column_family as ^ { `DBFPtr', `CFFPtr', allocaNullPtr- `CString' peek*} -> `()' #}
 
-{#fun list_column_families as ^ { `DBOptionsPtr', `CString', allocaCSize- `CSize' peek*, allocaNullPtr- `CString' peek*} -> `Ptr CString' id #}
+{#fun unsafe list_column_families as ^ { `DBOptionsPtr', `CString', allocaCSize- `CSize' peek*, allocaNullPtr- `CString' peek*} -> `Ptr CString' id #}
 
-{#fun open_column_families as ^ {
+{#fun unsafe open_column_families as ^ {
     `DBOptionsPtr',
     `CString',
     `CInt',
@@ -189,7 +189,7 @@ allocaCSize f = alloca (\ptr -> poke ptr 0 >> f ptr)
     allocaNullPtr- `CString' peek*
     } -> `DBFPtr' #}
 
-{#fun open_for_read_only_column_families as ^ {
+{#fun unsafe open_for_read_only_column_families as ^ {
     `DBOptionsPtr',
     `CString',
     `CInt',
@@ -200,42 +200,40 @@ allocaCSize f = alloca (\ptr -> poke ptr 0 >> f ptr)
     allocaNullPtr- `CString' peek*
     } -> `DBFPtr' #}
 
-{#fun put_cf as ^ { `DBFPtr', `WriteOptionsPtr', `CFFPtr', `CString', `CSize', `CString', `CSize', allocaNullPtr- `CString' peek*} -> `()' #}
+{#fun unsafe put_cf as ^ { `DBFPtr', `WriteOptionsPtr', `CFFPtr', `CString', `CSize', `CString', `CSize', allocaNullPtr- `CString' peek*} -> `()' #}
 
-{#fun get_cf as ^ { `DBFPtr', `ReadOptionsPtr', `CFFPtr', `CString', `CSize', allocaCSize- `CSize' peek*, allocaNullPtr- `CString' peek*} -> `CString' #}
+{#fun unsafe get_cf as ^ { `DBFPtr', `ReadOptionsPtr', `CFFPtr', `CString', `CSize', allocaCSize- `CSize' peek*, allocaNullPtr- `CString' peek*} -> `CString' #}
 
-{#fun create_iterator_cf as ^ {`DBFPtr', `ReadOptionsPtr', `CFFPtr'} -> `IteratorFPtr' #}
+{#fun unsafe create_iterator_cf as ^ {`DBFPtr', `ReadOptionsPtr', `CFFPtr'} -> `IteratorFPtr' #}
 
 -- Iterator
 
-{#fun iter_valid as ^ {`IteratorFPtr'} -> `Bool' #}
+{#fun unsafe iter_valid as ^ {`IteratorFPtr'} -> `Bool' #}
 
-{#fun iter_seek_to_first as ^ {`IteratorFPtr'} -> `()' #}
+{#fun unsafe iter_seek_to_first as ^ {`IteratorFPtr'} -> `()' #}
 
-{#fun iter_seek_to_last as ^ {`IteratorFPtr'} -> `()' #}
+{#fun unsafe iter_seek_to_last as ^ {`IteratorFPtr'} -> `()' #}
 
-{#fun iter_seek as ^ {`IteratorFPtr', `CString', `CSize'} -> `()' #}
+{#fun unsafe iter_seek as ^ {`IteratorFPtr', `CString', `CSize'} -> `()' #}
 
-{#fun iter_seek_for_prev as ^ {`IteratorFPtr', `CString', `CSize'} -> `()' #}
+{#fun unsafe iter_seek_for_prev as ^ {`IteratorFPtr', `CString', `CSize'} -> `()' #}
 
-{#fun iter_next as ^ {`IteratorFPtr'} -> `()' #}
+{#fun unsafe iter_next as ^ {`IteratorFPtr'} -> `()' #}
 
-{#fun iter_prev as ^ {`IteratorFPtr'} -> `()' #}
+{#fun unsafe iter_prev as ^ {`IteratorFPtr'} -> `()' #}
 
-{#fun iter_key as ^ {`IteratorFPtr', allocaCSize- `CSize' peek*} -> `CString' #}
+{#fun unsafe iter_key as ^ {`IteratorFPtr', allocaCSize- `CSize' peek*} -> `CString' #}
 
-{#fun iter_value as ^ {`IteratorFPtr', allocaCSize- `CSize' peek*} -> `CString' #}
+{#fun unsafe iter_value as ^ {`IteratorFPtr', allocaCSize- `CSize' peek*} -> `CString' #}
 
-{#fun iter_get_error as ^ {`IteratorFPtr', allocaNullPtr- `CString' peek*} -> `()' #}
+{#fun unsafe iter_get_error as ^ {`IteratorFPtr', allocaNullPtr- `CString' peek*} -> `()' #}
 
 -- Write batch
 
-{#fun writebatch_create as ^ { } -> `WriteBatchFPtr' #}
+{#fun unsafe writebatch_create as ^ { } -> `WriteBatchFPtr' #}
 
-{#fun writebatch_clear as ^ {`WriteBatchFPtr'} -> `()' #}
+{#fun unsafe writebatch_clear as ^ {`WriteBatchFPtr'} -> `()' #}
 
-{#fun writebatch_count as ^ {`WriteBatchFPtr'} -> `CInt' #}
+{#fun unsafe writebatch_count as ^ {`WriteBatchFPtr'} -> `CInt' #}
 
-{#fun writebatch_put_cf as ^ { `WriteBatchFPtr',  `CFFPtr', `CString', `CSize', `CString', `CSize'} -> `()' #}
-
-
+{#fun unsafe writebatch_put_cf as ^ { `WriteBatchFPtr',  `CFFPtr', `CString', `CSize', `CString', `CSize'} -> `()' #}
