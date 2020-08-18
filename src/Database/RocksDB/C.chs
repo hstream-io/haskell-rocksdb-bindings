@@ -7,6 +7,7 @@ module Database.RocksDB.C (
     IteratorFPtr,
     WriteOptionsPtr,
     ReadOptionsPtr,
+    FlushOptionsPtr,
     WriteBatchFPtr,
     open,
     openColumnFamilies,
@@ -39,6 +40,9 @@ module Database.RocksDB.C (
     writeoptionsDisableWAL,
     readoptionsCreate,
     readoptionsDestroy,
+    flushoptionsCreate,
+    flushoptionsDestroy,
+    flushoptionsSetWait,
     putCf,
     getCf,
     createIteratorCf,
@@ -60,7 +64,8 @@ module Database.RocksDB.C (
     writebatchClear,
     writebatchCount,
     writebatchPutCf,
-    approximateSizesCf
+    approximateSizesCf,
+    flushCf
 ) where
 
 import Foreign.C.String
@@ -94,6 +99,8 @@ allocaCSize f = alloca (\ptr -> poke ptr 0 >> f ptr)
 {#pointer *writeoptions_t as WriteOptionsPtr#}
 
 {#pointer *readoptions_t as ReadOptionsPtr#}
+
+{#pointer *flushoptions_t as FlushOptionsPtr#}
 
 {#pointer *column_family_handle_t as CFPtr #}
 
@@ -161,6 +168,14 @@ allocaCSize f = alloca (\ptr -> poke ptr 0 >> f ptr)
 
 {#fun unsafe readoptions_destroy as ^ { `ReadOptionsPtr' } -> `()' #}
 
+-- flush options
+
+{#fun unsafe flushoptions_create as ^ { } -> `FlushOptionsPtr' #}
+
+{#fun unsafe flushoptions_destroy as ^ { `FlushOptionsPtr' } -> `()' #}
+
+{#fun unsafe flushoptions_set_wait as ^ { `FlushOptionsPtr', `Bool' } -> `()' #}
+
 -- db
 
 {#fun unsafe open as ^ { `DBOptionsPtr', `CString', allocaNullPtr- `CString' peek*} -> `DBFPtr' #}
@@ -218,6 +233,8 @@ allocaCSize f = alloca (\ptr -> poke ptr 0 >> f ptr)
     withArray* `[CSize]' ,
     castPtr `Ptr Word64'
     } -> `()' #}
+
+{#fun unsafe flush_cf as ^ { `DBFPtr', `FlushOptionsPtr', `CFFPtr', allocaNullPtr- `CString' peek*} -> `()' #}
 
 -- Iterator
 

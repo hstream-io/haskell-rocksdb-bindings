@@ -77,6 +77,19 @@ defaultReadOptions =
 instance Default ReadOptions where
   def = defaultReadOptions
 
+data FlushOptions = FlushOptions
+  { wait :: Bool
+  }
+
+defaultFlushOptions :: FlushOptions
+defaultFlushOptions =
+  FlushOptions
+    { wait = True
+    }
+
+instance Default FlushOptions where
+  def = defaultFlushOptions
+
 mkDBOpts :: DBOptions -> IO C.DBOptionsPtr
 mkDBOpts DBOptions {..} = do
   opts <- C.optionsCreate
@@ -116,3 +129,12 @@ mkReadOpts ReadOptions {..} = C.readoptionsCreate
 
 withReadOpts :: ReadOptions -> (C.ReadOptionsPtr -> IO a) -> IO a
 withReadOpts opts = bracket (mkReadOpts opts) C.readoptionsDestroy
+
+mkFlushOpts :: FlushOptions -> IO C.FlushOptionsPtr
+mkFlushOpts FlushOptions {..} = do
+  optsPtr <- C.flushoptionsCreate
+  C.flushoptionsSetWait optsPtr wait
+  return optsPtr
+
+withFlushOpts :: FlushOptions -> (C.FlushOptionsPtr -> IO a) -> IO a
+withFlushOpts opts = bracket (mkFlushOpts opts) C.flushoptionsDestroy
