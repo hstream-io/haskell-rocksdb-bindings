@@ -392,6 +392,26 @@ main = hspec $ do
             return "success"
         )
         `shouldReturn` "success"
+    it "flush column family" $
+      runResourceT
+        ( do
+            (dirKey, path) <- createTempDirectory Nothing "rocksdb"
+            let opts = defaultDBOptions {createIfMissing = True}
+            (dbKey, db) <- allocate (open opts path) close
+            (cfKey, cf) <-
+              allocate
+                (createColumnFamily db opts "cf")
+                destroyColumnFamily
+
+            putCF db def cf "key" "value"
+            flushCF db def cf
+
+            release cfKey
+            release dbKey
+            release dirKey
+            return "success"
+        )
+        `shouldReturn` "success"
   describe "large data test" $ do
     it "put many items to db" $
       runResourceT
