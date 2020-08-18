@@ -3,7 +3,7 @@
 # variables here.  See https://github.com/composewell/packcheck for all
 # options and their explanation.
 
-dist: bionic
+dist: focal
 env:
   # ------------------------------------------------------------------------
   # Global options, you can use these per build as well
@@ -134,10 +134,10 @@ matrix:
     #- env: BUILD=stack RESOLVER=nightly
 
     - env: BUILD=stack RESOLVER=lts-16 GHCVER=8.8
-      addons: {apt: {packages: [cabal-install-3.2,librocksdb-dev], sources: [hvr-ghc]}}
+      addons: {apt: {packages: [cabal-install-3.2, rocksdb], sources: [hvr-ghc, exonum-rocksdb]}}
 
     - env: BUILD=stack RESOLVER=lts-15 GHCVER=8.8
-      addons: {apt: {packages: [cabal-install-3.2,librocksdb-dev], sources: [hvr-ghc]}}
+      addons: {apt: {packages: [cabal-install-3.2, rocksdb], sources: [hvr-ghc, exonum-rocksdb]}}
 
     #- env: BUILD=stack RESOLVER=lts-14 GHCVER=8.6
     #  addons: {apt: {packages: [cabal-install-3.2,librocksdb-dev], sources: [hvr-ghc]}}
