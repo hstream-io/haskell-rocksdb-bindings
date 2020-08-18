@@ -15,6 +15,7 @@ import Data.ByteString.Unsafe (unsafePackCStringLen, unsafeUseAsCStringLen)
 import Data.Default
 import Data.Function ((&))
 import Data.Maybe (isJust)
+import Data.Word (Word64)
 import qualified Database.RocksDB.C as C
 import Database.RocksDB.Exception
 import Database.RocksDB.Iterator
@@ -311,3 +312,26 @@ write (DB dbPtr) writeOpts (WriteBatch batchPtr) = liftIO $ withWriteOpts writeO
       if errPtr == nullPtr
         then return ()
         else liftIO $ throwDbException "write error: " errPtr
+
+approximateSizesCf :: MonadIO m => DB -> ColumnFamily -> [KeyRange] -> m [Word64]
+approximateSizesCf (DB dbPtr) (ColumnFamily cfPtr) keyRanges = liftIO $ do
+  let num = length keyRanges
+  cStrStartKeys <- mapM (flip unsafeUseAsCStringLen return . startKey) keyRanges
+  cStrLimitKeys <- mapM (flip unsafeUseAsCStringLen return . limitKey) keyRanges
+  let startKeys = map startKey keyRanges
+  let resultSizes = replicate num 0
+  withArray
+    resultSizes
+    ( \resultSizesPtr -> do
+        C.approximateSizesCf
+          dbPtr
+          cfPtr
+          (intToCInt num)
+          (map fst cStrStartKeys)
+          (map (intToCSize . snd) cStrStartKeys)
+          (map fst cStrLimitKeys)
+          (map (intToCSize . snd) cStrLimitKeys)
+          resultSizesPtr
+        res <- peekArray num resultSizesPtr
+        return $ map cULLongToWord64 res
+    )

@@ -59,7 +59,8 @@ module Database.RocksDB.C (
     writebatchCreate,
     writebatchClear,
     writebatchCount,
-    writebatchPutCf
+    writebatchPutCf,
+    approximateSizesCf
 ) where
 
 import Foreign.C.String
@@ -205,6 +206,17 @@ allocaCSize f = alloca (\ptr -> poke ptr 0 >> f ptr)
 {#fun unsafe get_cf as ^ { `DBFPtr', `ReadOptionsPtr', `CFFPtr', `CString', `CSize', allocaCSize- `CSize' peek*, allocaNullPtr- `CString' peek*} -> `CString' #}
 
 {#fun unsafe create_iterator_cf as ^ {`DBFPtr', `ReadOptionsPtr', `CFFPtr'} -> `IteratorFPtr' #}
+
+{#fun unsafe approximate_sizes_cf as ^ {
+    `DBFPtr',
+    `CFFPtr',
+    `CInt',
+    withArray* `[CString]' ,
+    withArray* `[CSize]' ,
+    withArray* `[CString]' ,
+    withArray* `[CSize]' ,
+    id `Ptr CULLong'
+    } -> `()' #}
 
 -- Iterator
 
