@@ -332,6 +332,5 @@ approximateSizesCf (DB dbPtr) (ColumnFamily cfPtr) keyRanges = liftIO $ do
           (map fst cStrLimitKeys)
           (map (intToCSize . snd) cStrLimitKeys)
           resultSizesPtr
-        res <- peekArray num resultSizesPtr
-        return $ map cULLongToWord64 res
+        peekArray num resultSizesPtr
     )

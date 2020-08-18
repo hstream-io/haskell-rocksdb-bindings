@@ -69,6 +69,7 @@ import Foreign.Marshal.Alloc (alloca)
 import Foreign.Marshal.Array (withArray, peekArray)
 import Foreign.Ptr
 import Foreign.Storable
+import Data.Word
 
 allocaNullPtr :: Storable a => (Ptr (Ptr a) -> IO b) -> IO b
 allocaNullPtr f = alloca (\ptr -> poke ptr nullPtr >> f ptr)
@@ -215,7 +216,7 @@ allocaCSize f = alloca (\ptr -> poke ptr 0 >> f ptr)
     withArray* `[CSize]' ,
     withArray* `[CString]' ,
     withArray* `[CSize]' ,
-    id `Ptr CULLong'
+    castPtr `Ptr Word64'
     } -> `()' #}
 
 -- Iterator
