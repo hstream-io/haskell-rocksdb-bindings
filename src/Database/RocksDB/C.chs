@@ -8,6 +8,7 @@ module Database.RocksDB.C (
     WriteOptionsPtr,
     ReadOptionsPtr,
     FlushOptionsPtr,
+    BlockBasedTableOptionsPtr,
     WriteBatchFPtr,
     open,
     openColumnFamilies,
@@ -43,6 +44,13 @@ module Database.RocksDB.C (
     flushoptionsCreate,
     flushoptionsDestroy,
     flushoptionsSetWait,
+    blockBasedOptionsCreate,
+    blockBasedOptionsDestroy,
+    blockBasedOptionsSetBlockSize,
+    blockBasedOptionsSetCacheIndexAndFilterBlocks,
+    blockBasedOptionsSetCacheIndexAndFilterBlocksWithHighPriority,
+    blockBasedOptionsSetPinL0FilterAndIndexBlocksInCache,
+    optionsSetBlockBasedTableFactory,
     putCf,
     getCf,
     createIteratorCf,
@@ -101,6 +109,8 @@ allocaCSize f = alloca (\ptr -> poke ptr 0 >> f ptr)
 {#pointer *readoptions_t as ReadOptionsPtr#}
 
 {#pointer *flushoptions_t as FlushOptionsPtr#}
+
+{#pointer *block_based_table_options_t as BlockBasedTableOptionsPtr#}
 
 {#pointer *column_family_handle_t as CFPtr #}
 
@@ -175,6 +185,22 @@ allocaCSize f = alloca (\ptr -> poke ptr 0 >> f ptr)
 {#fun unsafe flushoptions_destroy as ^ { `FlushOptionsPtr' } -> `()' #}
 
 {#fun unsafe flushoptions_set_wait as ^ { `FlushOptionsPtr', `Bool' } -> `()' #}
+
+-- block based table options
+
+{#fun unsafe block_based_options_create as ^ { } -> `BlockBasedTableOptionsPtr' #}
+
+{#fun unsafe block_based_options_destroy as ^ { `BlockBasedTableOptionsPtr' } -> `()' #}
+
+{#fun unsafe block_based_options_set_block_size as ^ { `BlockBasedTableOptionsPtr', `CSize' } -> `()' #}
+
+{#fun unsafe block_based_options_set_cache_index_and_filter_blocks as ^ { `BlockBasedTableOptionsPtr', `Bool' } -> `()' #}
+
+{#fun unsafe block_based_options_set_cache_index_and_filter_blocks_with_high_priority as ^ { `BlockBasedTableOptionsPtr', `Bool' } -> `()' #}
+
+{#fun unsafe block_based_options_set_pin_l0_filter_and_index_blocks_in_cache as ^ { `BlockBasedTableOptionsPtr', `Bool' } -> `()' #}
+
+{#fun unsafe options_set_block_based_table_factory as ^ { `DBOptionsPtr', `BlockBasedTableOptionsPtr' } -> `()' #}
 
 -- db
 
