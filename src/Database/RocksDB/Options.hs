@@ -7,6 +7,7 @@ import Data.Default
 import Data.Word (Word32, Word64)
 import qualified Database.RocksDB.C as C
 import Database.RocksDB.Util
+import Foreign.Ptr (nullPtr)
 
 data DBOptions = DBOptions
   { createIfMissing :: Bool,
@@ -24,7 +25,8 @@ data DBOptions = DBOptions
     maxBackgroundCompactions :: Int,
     maxBackgroundFlushes :: Int,
     softPendingCompactionBytesLimit :: Word64,
-    hardPendingCompactionBytesLimit :: Word64
+    hardPendingCompactionBytesLimit :: Word64,
+    blockBasedTableOptions :: BlockBasedOptions
   }
 
 defaultDBOptions :: DBOptions
@@ -45,7 +47,8 @@ defaultDBOptions =
       maxBackgroundCompactions = -1,
       maxBackgroundFlushes = -1,
       softPendingCompactionBytesLimit = 68719476736,
-      hardPendingCompactionBytesLimit = 274877906944
+      hardPendingCompactionBytesLimit = 274877906944,
+      blockBasedTableOptions = def
     }
 
 instance Default DBOptions where
@@ -90,6 +93,25 @@ defaultFlushOptions =
 instance Default FlushOptions where
   def = defaultFlushOptions
 
+data BlockBasedOptions = BlockBasedOptions
+  { blockSize :: Int,
+    cacheIndexAndFilterBlocks :: Bool,
+    cacheIndexAndFilterBlocksWithHighPriority :: Bool,
+    pinL0FilterAndIndexBlocksInCache :: Bool
+  }
+
+defaultBlockBasedOptions :: BlockBasedOptions
+defaultBlockBasedOptions =
+  BlockBasedOptions
+    { blockSize = 4096,
+      cacheIndexAndFilterBlocks = False,
+      cacheIndexAndFilterBlocksWithHighPriority = True,
+      pinL0FilterAndIndexBlocksInCache = False
+    }
+
+instance Default BlockBasedOptions where
+  def = defaultBlockBasedOptions
+
 mkDBOpts :: DBOptions -> IO C.DBOptionsPtr
 mkDBOpts DBOptions {..} = do
   opts <- C.optionsCreate
@@ -109,6 +131,9 @@ mkDBOpts DBOptions {..} = do
   C.optionsSetMaxBackgroundFlushes opts (intToCInt maxBackgroundFlushes)
   C.optionsSetSoftPendingCompactionBytesLimit opts (word64ToCSize softPendingCompactionBytesLimit)
   C.optionsSetHardPendingCompactionBytesLimit opts (word64ToCSize hardPendingCompactionBytesLimit)
+
+  withBlockBasedOpts blockBasedTableOptions $ C.optionsSetBlockBasedTableFactory opts
+
   return opts
 
 withDBOpts :: DBOptions -> (C.DBOptionsPtr -> IO a) -> IO a
@@ -138,3 +163,15 @@ mkFlushOpts FlushOptions {..} = do
 
 withFlushOpts :: FlushOptions -> (C.FlushOptionsPtr -> IO a) -> IO a
 withFlushOpts opts = bracket (mkFlushOpts opts) C.flushoptionsDestroy
+
+mkBlockBasedOpts :: BlockBasedOptions -> IO C.BlockBasedTableOptionsPtr
+mkBlockBasedOpts BlockBasedOptions {..} = do
+  optsPtr <- C.blockBasedOptionsCreate
+  C.blockBasedOptionsSetBlockSize optsPtr (intToCSize blockSize)
+  C.blockBasedOptionsSetCacheIndexAndFilterBlocks optsPtr cacheIndexAndFilterBlocks
+  C.blockBasedOptionsSetCacheIndexAndFilterBlocksWithHighPriority optsPtr cacheIndexAndFilterBlocksWithHighPriority
+  C.blockBasedOptionsSetPinL0FilterAndIndexBlocksInCache optsPtr pinL0FilterAndIndexBlocksInCache
+  return optsPtr
+
+withBlockBasedOpts :: BlockBasedOptions -> (C.BlockBasedTableOptionsPtr -> IO a) -> IO a
+withBlockBasedOpts opts = bracket (mkBlockBasedOpts opts) C.blockBasedOptionsDestroy
