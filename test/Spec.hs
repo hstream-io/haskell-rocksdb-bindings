@@ -12,6 +12,8 @@ import Control.Monad.Trans.Resource (MonadUnliftIO, ResourceT, allocate, registe
 import Data.ByteString (ByteString)
 import Data.Default (def)
 import Data.Either.Combinators (isRight)
+import Data.Foldable (forM_)
+import Data.Maybe (isJust)
 import Database.RocksDB
 import Database.RocksDB.Util
 import qualified Streamly.Prelude as S
@@ -412,6 +414,48 @@ main = hspec $ do
             return "success"
         )
         `shouldReturn` "success"
+    it "get column family property value" $
+      runResourceT
+        ( do
+            (dirKey, path) <- createTempDirectory Nothing "rocksdb"
+            let opts = defaultDBOptions {createIfMissing = True}
+            (dbKey, db) <- allocate (open opts path) close
+            (cfKey, cf) <-
+              allocate
+                (createColumnFamily db opts "cf")
+                destroyColumnFamily
+
+            putCF db def cf "key" "value"
+            res <- getPropertyValueCF db cf "rocksdb.num-files-at-level0"
+            -- liftIO $ forM_ res print
+
+            release cfKey
+            release dbKey
+            release dirKey
+            return $ isJust res
+        )
+        `shouldReturn` True
+    it "get column family property int" $
+      runResourceT
+        ( do
+            (dirKey, path) <- createTempDirectory Nothing "rocksdb"
+            let opts = defaultDBOptions {createIfMissing = True}
+            (dbKey, db) <- allocate (open opts path) close
+            (cfKey, cf) <-
+              allocate
+                (createColumnFamily db opts "cf")
+                destroyColumnFamily
+
+            putCF db def cf "key" "value"
+            res <- getPropertyIntCF db cf "rocksdb.estimate-num-keys"
+            -- liftIO $ forM_ res print
+
+            release cfKey
+            release dbKey
+            release dirKey
+            return $ isJust res
+        )
+        `shouldReturn` True
   describe "large data test" $ do
     it "put many items to db" $
       runResourceT

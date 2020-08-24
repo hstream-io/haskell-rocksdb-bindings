@@ -25,6 +25,9 @@ intToCSize = fromIntegral
 word64ToCSize :: Word64 -> CSize
 word64ToCSize = fromIntegral
 
+cSizeToWord64 :: CSize -> Word64
+cSizeToWord64 = fromIntegral
+
 word32ToCUInt :: Word32 -> CUInt
 word32ToCUInt = fromIntegral
 

@@ -72,6 +72,10 @@ module Database.RocksDB.C (
     writebatchClear,
     writebatchCount,
     writebatchPutCf,
+    propertyValue,
+    propertyInt,
+    propertyIntCf,
+    propertyValueCf,
     approximateSizesCf,
     flushCf
 ) where
@@ -93,6 +97,8 @@ allocaCSize f = alloca (\ptr -> poke ptr 0 >> f ptr)
 #include "rocksdb/c.h"
 
 {#typedef size_t CSize#}
+
+{#typedef uint64_t CSize#}
 
 {#context prefix = "rocksdb" #}
 
@@ -248,6 +254,29 @@ allocaCSize f = alloca (\ptr -> poke ptr 0 >> f ptr)
 {#fun unsafe get_cf as ^ { `DBFPtr', `ReadOptionsPtr', `CFFPtr', `CString', `CSize', allocaCSize- `CSize' peek*, allocaNullPtr- `CString' peek*} -> `CString' #}
 
 {#fun unsafe create_iterator_cf as ^ {`DBFPtr', `ReadOptionsPtr', `CFFPtr'} -> `IteratorFPtr' #}
+
+-- /* Returns NULL if property name is unknown.
+--    Else returns a pointer to a malloc()-ed null-terminated value. */
+-- extern ROCKSDB_LIBRARY_API char* rocksdb_property_value(rocksdb_t* db,
+{#fun unsafe property_value as ^ {`DBFPtr', `CString'} -> `CString' #}
+
+-- /* returns 0 on success, -1 otherwise */
+-- int rocksdb_property_int(
+--     rocksdb_t* db,
+--     const char* propname, uint64_t *out_val);
+-- {#fun unsafe property_int as ^ {`DBFPtr', `CString', castPtr `Ptr Word64' peek*} -> `CInt' #}
+{#fun unsafe property_int as ^ {`DBFPtr', `CString', allocaCSize- `CSize' peek*} -> `CInt' #}
+
+-- /* returns 0 on success, -1 otherwise */
+-- int rocksdb_property_int_cf(
+--     rocksdb_t* db, rocksdb_column_family_handle_t* column_family,
+--     const char* propname, uint64_t *out_val);
+{#fun unsafe property_int_cf as ^ {`DBFPtr', `CFFPtr', `CString', allocaCSize- `CSize' peek*} -> `CInt' #}
+
+-- extern ROCKSDB_LIBRARY_API char* rocksdb_property_value_cf(
+--     rocksdb_t* db, rocksdb_column_family_handle_t* column_family,
+--     const char* propname);
+{#fun unsafe property_value_cf as ^ {`DBFPtr', `CFFPtr', `CString'} -> `CString' #}
 
 {#fun unsafe approximate_sizes_cf as ^ {
     `DBFPtr',
