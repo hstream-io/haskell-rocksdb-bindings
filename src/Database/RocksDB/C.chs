@@ -35,6 +35,7 @@ module Database.RocksDB.C (
     optionsSetMaxBackgroundFlushes,
     optionsSetSoftPendingCompactionBytesLimit,
     optionsSetHardPendingCompactionBytesLimit,
+    optionsSetMaxOpenFiles,
     writeoptionsCreate,
     writeoptionsDestroy,
     writeoptionsSetSync,
@@ -167,6 +168,10 @@ allocaCSize f = alloca (\ptr -> poke ptr 0 >> f ptr)
 {#fun unsafe options_set_soft_pending_compaction_bytes_limit as ^ { `DBOptionsPtr', `CSize' } -> `()' #}
 
 {#fun unsafe options_set_hard_pending_compaction_bytes_limit as ^ { `DBOptionsPtr', `CSize' } -> `()' #}
+
+-- extern ROCKSDB_LIBRARY_API void rocksdb_options_set_max_open_files(
+--     rocksdb_options_t*, int);
+{#fun unsafe options_set_max_open_files as ^ { `DBOptionsPtr', `CInt' } -> `()' #}
 
 -- writeOptions
 

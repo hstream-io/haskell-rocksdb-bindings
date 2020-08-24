@@ -26,7 +26,8 @@ data DBOptions = DBOptions
     maxBackgroundFlushes :: Int,
     softPendingCompactionBytesLimit :: Word64,
     hardPendingCompactionBytesLimit :: Word64,
-    blockBasedTableOptions :: BlockBasedOptions
+    blockBasedTableOptions :: BlockBasedOptions,
+    maxOpenFiles :: Int
   }
 
 defaultDBOptions :: DBOptions
@@ -48,6 +49,7 @@ defaultDBOptions =
       maxBackgroundFlushes = -1,
       softPendingCompactionBytesLimit = 68719476736,
       hardPendingCompactionBytesLimit = 274877906944,
+      maxOpenFiles = -1,
       blockBasedTableOptions = def
     }
 
@@ -131,6 +133,7 @@ mkDBOpts DBOptions {..} = do
   C.optionsSetMaxBackgroundFlushes opts (intToCInt maxBackgroundFlushes)
   C.optionsSetSoftPendingCompactionBytesLimit opts (word64ToCSize softPendingCompactionBytesLimit)
   C.optionsSetHardPendingCompactionBytesLimit opts (word64ToCSize hardPendingCompactionBytesLimit)
+  C.optionsSetMaxOpenFiles opts (intToCInt maxOpenFiles)
 
   withBlockBasedOpts blockBasedTableOptions $ C.optionsSetBlockBasedTableFactory opts
 
