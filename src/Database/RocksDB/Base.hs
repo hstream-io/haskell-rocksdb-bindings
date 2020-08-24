@@ -10,8 +10,8 @@ import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except (ExceptT (..))
 import Control.Monad.Trans.Maybe (MaybeT)
 import Control.Monad.Trans.Resource (MonadUnliftIO, allocate, runResourceT)
-import Data.ByteString (ByteString, packCStringLen, useAsCStringLen)
-import Data.ByteString.Unsafe (unsafePackCStringLen, unsafeUseAsCStringLen)
+import Data.ByteString (ByteString, packCString, packCStringLen, useAsCStringLen)
+import Data.ByteString.Unsafe (unsafePackCStringLen, unsafeUseAsCString, unsafeUseAsCStringLen)
 import Data.Default
 import Data.Function ((&))
 import Data.Maybe (isJust)
@@ -343,3 +343,41 @@ flushCF (DB dbPtr) flushOpts (ColumnFamily cfPtr) = liftIO $ withFlushOpts flush
       if errPtr == nullPtr
         then return ()
         else liftIO $ throwDbException "flushCF error: " errPtr
+
+getPropertyValue :: MonadIO m => DB -> ByteString -> m (Maybe ByteString)
+getPropertyValue (DB dbPtr) propName = liftIO $ do
+  propNameCstr <- unsafeUseAsCString propName return
+  valuePtr <- C.propertyValue dbPtr propNameCstr
+  if valuePtr == nullPtr
+    then return Nothing
+    else do
+      value <- packCString valuePtr
+      free valuePtr
+      return $ Just value
+
+getPropertyValueCF :: MonadIO m => DB -> ColumnFamily -> ByteString -> m (Maybe ByteString)
+getPropertyValueCF (DB dbPtr) (ColumnFamily cfPtr) propName = liftIO $ do
+  propNameCstr <- unsafeUseAsCString propName return
+  valuePtr <- C.propertyValueCf dbPtr cfPtr propNameCstr
+  if valuePtr == nullPtr
+    then return Nothing
+    else do
+      value <- packCString valuePtr
+      free valuePtr
+      return $ Just value
+
+getPropertyInt :: MonadIO m => DB -> ByteString -> m (Maybe Word64)
+getPropertyInt (DB dbPtr) propName = liftIO $ do
+  propNameCstr <- unsafeUseAsCString propName return
+  (resFlag, res) <- C.propertyInt dbPtr propNameCstr
+  if resFlag /= 0
+    then return Nothing
+    else return $ Just $ cSizeToWord64 res
+
+getPropertyIntCF :: MonadIO m => DB -> ColumnFamily -> ByteString -> m (Maybe Word64)
+getPropertyIntCF (DB dbPtr) (ColumnFamily cfPtr) propName = liftIO $ do
+  propNameCstr <- unsafeUseAsCString propName return
+  (resFlag, res) <- C.propertyIntCf dbPtr cfPtr propNameCstr
+  if resFlag /= 0
+    then return Nothing
+    else return $ Just $ cSizeToWord64 res
