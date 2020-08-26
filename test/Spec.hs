@@ -371,7 +371,25 @@ main = hspec $ do
             return r
         )
         `shouldReturn` [("key1", "value1"), ("key2", "value2"), ("key3", "value3")]
-    it "write batch" $
+    it "db write batch" $
+      runResourceT
+        ( do
+            (dirKey, path) <- createTempDirectory Nothing "rocksdb"
+            let opts = defaultDBOptions {createIfMissing = True}
+            (dbKey, db) <- allocate (open opts path) close
+            (batchKey, batch) <-
+              allocate createWriteBatch destroyWriteBatch
+            batchPut batch "key1" "value1"
+            batchPut batch "key2" "value2"
+            batchPut batch "key3" "value3"
+            write db def batch
+            release batchKey
+            release dbKey
+            release dirKey
+            return "success"
+        )
+        `shouldReturn` "success"
+    it "column family write batch" $
       runResourceT
         ( do
             (dirKey, path) <- createTempDirectory Nothing "rocksdb"
@@ -389,6 +407,21 @@ main = hspec $ do
             write db def batch
             release batchKey
             release cfKey
+            release dbKey
+            release dirKey
+            return "success"
+        )
+        `shouldReturn` "success"
+    it "flush db" $
+      runResourceT
+        ( do
+            (dirKey, path) <- createTempDirectory Nothing "rocksdb"
+            let opts = defaultDBOptions {createIfMissing = True}
+            (dbKey, db) <- allocate (open opts path) close
+
+            put db def "key" "value"
+            flush db def
+
             release dbKey
             release dirKey
             return "success"

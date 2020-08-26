@@ -72,12 +72,14 @@ module Database.RocksDB.C (
     writebatchCreate,
     writebatchClear,
     writebatchCount,
+    writebatchPut,
     writebatchPutCf,
     propertyValue,
     propertyInt,
     propertyIntCf,
     propertyValueCf,
     approximateSizesCf,
+    flush,
     flushCf
 ) where
 
@@ -294,6 +296,8 @@ allocaCSize f = alloca (\ptr -> poke ptr 0 >> f ptr)
     castPtr `Ptr Word64'
     } -> `()' #}
 
+{#fun unsafe flush as ^ { `DBFPtr', `FlushOptionsPtr', allocaNullPtr- `CString' peek*} -> `()' #}
+
 {#fun unsafe flush_cf as ^ { `DBFPtr', `FlushOptionsPtr', `CFFPtr', allocaNullPtr- `CString' peek*} -> `()' #}
 
 -- Iterator
@@ -325,5 +329,7 @@ allocaCSize f = alloca (\ptr -> poke ptr 0 >> f ptr)
 {#fun unsafe writebatch_clear as ^ {`WriteBatchFPtr'} -> `()' #}
 
 {#fun unsafe writebatch_count as ^ {`WriteBatchFPtr'} -> `CInt' #}
+
+{#fun unsafe writebatch_put as ^ { `WriteBatchFPtr', `CString', `CSize', `CString', `CSize'} -> `()' #}
 
 {#fun unsafe writebatch_put_cf as ^ { `WriteBatchFPtr',  `CFFPtr', `CString', `CSize', `CString', `CSize'} -> `()' #}

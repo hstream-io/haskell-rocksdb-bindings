@@ -335,6 +335,15 @@ approximateSizesCf (DB dbPtr) (ColumnFamily cfPtr) keyRanges = liftIO $ do
         peekArray num resultSizesPtr
     )
 
+flush :: MonadIO m => DB -> FlushOptions -> m ()
+flush (DB dbPtr) flushOpts = liftIO $ withFlushOpts flushOpts flush'
+  where
+    flush' opts = do
+      errPtr <- C.flush dbPtr opts
+      if errPtr == nullPtr
+        then return ()
+        else liftIO $ throwDbException "flush error: " errPtr
+
 flushCF :: MonadIO m => DB -> FlushOptions -> ColumnFamily -> m ()
 flushCF (DB dbPtr) flushOpts (ColumnFamily cfPtr) = liftIO $ withFlushOpts flushOpts flushCF'
   where
