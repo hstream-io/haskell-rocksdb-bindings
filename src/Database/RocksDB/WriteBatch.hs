@@ -29,6 +29,13 @@ clear (WriteBatch batchPtr) = liftIO $ C.writebatchClear batchPtr
 count :: MonadIO m => WriteBatch -> m Int
 count (WriteBatch batchPtr) = liftIO $ fmap cIntToInt (C.writebatchCount batchPtr)
 
+batchPut :: MonadIO m => WriteBatch -> ByteString -> ByteString -> m ()
+batchPut (WriteBatch batchPtr) key value = liftIO $
+  do
+    (cKey, cKeyLen) <- unsafeUseAsCStringLen key return
+    (cValue, cValueLen) <- unsafeUseAsCStringLen value return
+    C.writebatchPut batchPtr cKey (intToCSize cKeyLen) cValue (intToCSize cValueLen)
+
 batchPutCF :: MonadIO m => WriteBatch -> ColumnFamily -> ByteString -> ByteString -> m ()
 batchPutCF (WriteBatch batchPtr) (ColumnFamily cfPtr) key value = liftIO $
   do
