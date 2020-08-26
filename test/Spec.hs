@@ -42,6 +42,25 @@ main = hspec $ do
             return "success"
         )
         `shouldReturn` "success"
+    it "open db for read only" $
+      runResourceT
+        ( do
+            (dirKey, path) <- createTempDirectory Nothing "rocksdb"
+            (dbKey, _) <-
+              allocate
+                (open defaultDBOptions {createIfMissing = True} path)
+                close
+            release dbKey
+
+            (dbForReadKey, _) <-
+              allocate
+                (openForReadOnly def path False)
+                close
+            release dbForReadKey
+            release dirKey
+            return "success"
+        )
+        `shouldReturn` "success"
     it "put kv to db" $
       runResourceT
         ( do

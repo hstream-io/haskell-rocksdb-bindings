@@ -11,6 +11,7 @@ module Database.RocksDB.C (
     BlockBasedTableOptionsPtr,
     WriteBatchFPtr,
     open,
+    openForReadOnly,
     openColumnFamilies,
     openForReadOnlyColumnFamilies,
     listColumnFamilies,
@@ -244,6 +245,8 @@ allocaCSize f = alloca (\ptr -> poke ptr 0 >> f ptr)
     id `Ptr CFPtr' ,
     allocaNullPtr- `CString' peek*
     } -> `DBFPtr' #}
+
+{#fun unsafe open_for_read_only as ^ { `DBOptionsPtr', `CString', `Bool', allocaNullPtr- `CString' peek*} -> `DBFPtr' #}
 
 {#fun unsafe open_for_read_only_column_families as ^ {
     `DBOptionsPtr',

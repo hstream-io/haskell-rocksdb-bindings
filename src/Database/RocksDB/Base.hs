@@ -47,6 +47,20 @@ open opts path = liftIO $ withDBOpts opts mkDB
                 else throwDbException "open error: " errPtr
         )
 
+openForReadOnly :: MonadIO m => DBOptions -> FilePath -> Bool -> m DB
+openForReadOnly opts path errorIfLogFileExist = liftIO $ withDBOpts opts mkDbReadOnly
+  where
+    mkDbReadOnly optsPtr =
+      withFilePath
+        path
+        ( \pathPtr ->
+            do
+              (dbPtr, errPtr) <- C.openForReadOnly optsPtr pathPtr errorIfLogFileExist
+              if errPtr == nullPtr
+                then return $ DB dbPtr
+                else throwDbException "openForReadOnly error: " errPtr
+        )
+
 close :: MonadIO m => DB -> m ()
 close (DB dbPtr) = liftIO $ finalizeForeignPtr dbPtr
 
