@@ -12,6 +12,8 @@ extra-source-files:
 - README.md
 - ChangeLog.md
 
+category:            Database
+synopsis:            Haskell wrapper for RocksDB.
 description:         Please see the README on GitHub at <https://github.com/daleiz/haskell-rocksdb-bindings#readme>
 
 dependencies:

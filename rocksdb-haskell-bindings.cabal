@@ -4,11 +4,13 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 43756c6d1ea53249c782298b63aa3eb10cc44bf6323ca73b2fad9a9a7d60ce10
+-- hash: 0950d3ea069a00c6b9086fab1366d8d965c5c2288f9721b3998d790fd200b205
 
 name:           rocksdb-haskell-bindings
 version:        0.1.0.0
+synopsis:       Haskell wrapper for RocksDB.
 description:    Please see the README on GitHub at <https://github.com/daleiz/haskell-rocksdb-bindings#readme>
+category:       Database
 homepage:       https://github.com/daleiz/rocksdb-haskell-bindings#readme
 bug-reports:    https://github.com/daleiz/rocksdb-haskell-bindings/issues
 author:         Wang Bin
