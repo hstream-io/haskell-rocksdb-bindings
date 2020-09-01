@@ -21,7 +21,7 @@ dependencies:
 - either
 - bytestring
 - conduit
-- streamly
+- streamly >= 0.7 && < 1
 - data-default
 - binary
 
