@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 20bc02261d8a4b2dcd1f0311a1df4d46a34053af5ed9f063d849aace3e1e9d57
+-- hash: 2edbeb56010afd0be71ef66e0b7fef488013f191bde3d89205e1c30a52877ff7
 
 name:           rocksdb-haskell-bindings
 version:        0.1.0.0
@@ -16,6 +16,7 @@ maintainer:     wangbin@emqx.com
 copyright:      Wang Bin
 license:        BSD3
 license-file:   LICENSE
+tested-with:    GHC == 8.10.2, GHC == 8.8.4, GHC == 8.6.5
 build-type:     Simple
 extra-source-files:
     README.md
