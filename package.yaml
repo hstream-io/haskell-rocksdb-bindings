@@ -6,6 +6,8 @@ author:              "Wang Bin"
 maintainer:          "wangbin@emqx.com"
 copyright:           "Wang Bin"
 
+tested-with:         GHC == 8.10.2, GHC == 8.8.4, GHC == 8.6.5
+
 extra-source-files:
 - README.md
 - ChangeLog.md
